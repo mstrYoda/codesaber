@@ -235,7 +235,7 @@ const AgentPanel: React.FC = () => {
   useEffect(() => {
     if (!activeId || histRef.current[activeId]) return
     App.ACPLoadTranscript(activeId)
-      .then((entries) => {
+      .then(({ entries }) => {
         if (histRef.current[activeId]) return
         const list = (entries ?? [])
           .filter((e) => e.role === 'user' && e.text.trim())
@@ -375,7 +375,7 @@ const AgentPanel: React.FC = () => {
         <button className={dimAction} disabled={!running || thinking} title="Start a fresh session" onClick={() => newSession(activeId).catch((e) => setHistErr(String(e)))}>
           <span>＋</span> New Session
         </button>
-        <button className={dimAction} disabled={timeline.length === 0} title="Delete the active session's transcript" onClick={() => clearTranscript(activeId).catch((e) => setHistErr(String(e)))}>
+        <button className={dimAction} disabled={!activeSID || timeline.length === 0} title="Delete the displayed session's transcript" onClick={() => clearTranscript(activeId).catch((e) => setHistErr(String(e)))}>
           ⧉ Clear transcript
         </button>
       </div>

@@ -62,7 +62,8 @@ func (f *fakePrompter) emit(u acp.SessionUpdate) {
 }
 
 // installFakeAgent swaps acpStartSession for a fake returning fp; restores on
-// test cleanup.
+// test cleanup. Tests start through acpStartProfile so fake sessions do not
+// depend on an installed agent binary. ACPStart discovery is tested separately.
 func installFakeAgent(t *testing.T, fp *fakePrompter) {
 	t.Helper()
 	prev := acpStartSession
@@ -87,7 +88,7 @@ func TestACPStartEmitsTranscriptAndState(t *testing.T) {
 	app, sink, pid := newAgentTestApp(t)
 	installFakeAgent(t, &fakePrompter{})
 
-	if err := app.ACPStart(pid, "opencode"); err != nil {
+	if err := app.acpStartProfile(pid, acp.Info{Name: "fake"}); err != nil {
 		t.Fatalf("ACPStart: %v", err)
 	}
 	tr := sink.waitFor(t, EventACPTranscript, 2*time.Second)
@@ -121,10 +122,10 @@ func TestACPStartIdempotent(t *testing.T) {
 	}
 	t.Cleanup(func() { acpStartSession = prev })
 
-	if err := app.ACPStart(pid, "opencode"); err != nil {
+	if err := app.acpStartProfile(pid, acp.Info{Name: "fake"}); err != nil {
 		t.Fatalf("first ACPStart: %v", err)
 	}
-	if err := app.ACPStart(pid, "opencode"); err != nil {
+	if err := app.acpStartProfile(pid, acp.Info{Name: "fake"}); err != nil {
 		t.Fatalf("second ACPStart: %v", err)
 	}
 	if spawnCount != 1 {
@@ -147,10 +148,10 @@ func TestACPStartRetryAfterFailure(t *testing.T) {
 	}
 	t.Cleanup(func() { acpStartSession = prev })
 
-	if err := app.ACPStart(pid, "opencode"); err == nil {
+	if err := app.acpStartProfile(pid, acp.Info{Name: "fake"}); err == nil {
 		t.Fatal("want error from failed first start")
 	}
-	if err := app.ACPStart(pid, "opencode"); err != nil {
+	if err := app.acpStartProfile(pid, acp.Info{Name: "fake"}); err != nil {
 		t.Fatalf("retry after failure: %v", err)
 	}
 	if spawnCount != 2 {
@@ -165,12 +166,24 @@ func TestACPStartUnknownHarness(t *testing.T) {
 	}
 }
 
+func TestACPStartUnavailableHarness(t *testing.T) {
+	app, _, pid := newAgentTestApp(t)
+	installFakeAgent(t, &fakePrompter{})
+	t.Setenv("PATH", t.TempDir())
+	if err := app.ACPStart(pid, "opencode"); err == nil || !strings.Contains(err.Error(), "not found on PATH") {
+		t.Fatalf("ACPStart = %v, want unavailable harness error", err)
+	}
+	if ag := app.agentFor(pid); ag != nil {
+		t.Fatal("unavailable harness must not create an agent session")
+	}
+}
+
 func TestACPSendPromptStreamsAndPersists(t *testing.T) {
 	app, sink, pid := newAgentTestApp(t)
 	fp := &fakePrompter{}
 	installFakeAgent(t, fp)
 
-	if err := app.ACPStart(pid, "opencode"); err != nil {
+	if err := app.acpStartProfile(pid, acp.Info{Name: "fake"}); err != nil {
 		t.Fatalf("ACPStart: %v", err)
 	}
 	sink.snapshot() // drain start events
@@ -232,10 +245,11 @@ func TestACPSendPromptStreamsAndPersists(t *testing.T) {
 	}
 
 	// transcript persisted: user entry + assembled agent reply
-	entries, err := app.ACPLoadTranscript(pid)
+	transcript, err := app.ACPLoadTranscript(pid)
 	if err != nil {
 		t.Fatalf("LoadTranscript: %v", err)
 	}
+	entries := transcript.Entries
 	var roles []string
 	for _, e := range entries {
 		roles = append(roles, e.Role)
@@ -261,7 +275,7 @@ func TestACPPermissionRespondSelection(t *testing.T) {
 	fp := &fakePrompter{}
 	installFakeAgent(t, fp)
 
-	if err := app.ACPStart(pid, "opencode"); err != nil {
+	if err := app.acpStartProfile(pid, acp.Info{Name: "fake"}); err != nil {
 		t.Fatalf("ACPStart: %v", err)
 	}
 
@@ -301,7 +315,7 @@ func TestACPPermissionRespondCancel(t *testing.T) {
 	app, sink, pid := newAgentTestApp(t)
 	fp := &fakePrompter{}
 	installFakeAgent(t, fp)
-	if err := app.ACPStart(pid, "opencode"); err != nil {
+	if err := app.acpStartProfile(pid, acp.Info{Name: "fake"}); err != nil {
 		t.Fatalf("ACPStart: %v", err)
 	}
 
@@ -330,7 +344,7 @@ func TestACPRespondPermissionUnknownRequest(t *testing.T) {
 	app, _, pid := newAgentTestApp(t)
 	fp := &fakePrompter{}
 	installFakeAgent(t, fp)
-	if err := app.ACPStart(pid, "opencode"); err != nil {
+	if err := app.acpStartProfile(pid, acp.Info{Name: "fake"}); err != nil {
 		t.Fatalf("ACPStart: %v", err)
 	}
 	if err := app.ACPRespondPermission(pid, "nope", "allow", false); err == nil {
@@ -342,7 +356,7 @@ func TestACPNewSessionClosesOldAndKeepsTranscript(t *testing.T) {
 	app, sink, pid := newAgentTestApp(t)
 	fp1 := &fakePrompter{}
 	installFakeAgent(t, fp1)
-	if err := app.ACPStart(pid, "opencode"); err != nil {
+	if err := app.acpStartProfile(pid, acp.Info{Name: "fake"}); err != nil {
 		t.Fatalf("ACPStart: %v", err)
 	}
 	if err := app.ACPSendPrompt(pid, "first turn"); err != nil {
@@ -371,10 +385,11 @@ func TestACPNewSessionClosesOldAndKeepsTranscript(t *testing.T) {
 		t.Fatalf("old session tail = %#v, want divider entry", oldEntries)
 	}
 	// the fresh record becomes the active transcript
-	entries, err := app.ACPLoadTranscript(pid)
+	transcript, err := app.ACPLoadTranscript(pid)
 	if err != nil {
 		t.Fatalf("LoadTranscript: %v", err)
 	}
+	entries := transcript.Entries
 	if len(entries) != 1 || entries[0].Text != "— session started —" {
 		t.Fatalf("transcript tail = %#v, want session-started entry", entries)
 	}
@@ -391,7 +406,7 @@ func TestACPStopClosesSession(t *testing.T) {
 	app, sink, pid := newAgentTestApp(t)
 	fp := &fakePrompter{}
 	installFakeAgent(t, fp)
-	if err := app.ACPStart(pid, "opencode"); err != nil {
+	if err := app.acpStartProfile(pid, acp.Info{Name: "fake"}); err != nil {
 		t.Fatalf("ACPStart: %v", err)
 	}
 	if err := app.ACPStop(pid); err != nil {
@@ -419,7 +434,7 @@ func TestACPStartSpawnFailureReportsHarnessDown(t *testing.T) {
 	}
 	t.Cleanup(func() { acpStartSession = prev })
 
-	if err := app.ACPStart(pid, "opencode"); err == nil {
+	if err := app.acpStartProfile(pid, acp.Info{Name: "fake"}); err == nil {
 		t.Fatal("want error from failed spawn")
 	}
 	st := sink.waitFor(t, EventACPState, 2*time.Second)
@@ -518,7 +533,7 @@ func TestACPReadRejectsOversizedFile(t *testing.T) {
 		return fp, nil
 	}
 	t.Cleanup(func() { acpStartSession = prev })
-	if err := app.ACPStart(pid, "opencode"); err != nil {
+	if err := app.acpStartProfile(pid, acp.Info{Name: "fake"}); err != nil {
 		t.Fatalf("ACPStart: %v", err)
 	}
 	if readHandler == nil {
@@ -554,7 +569,7 @@ func TestACPWriteGatedByPermission(t *testing.T) {
 		return fp, nil
 	}
 	t.Cleanup(func() { acpStartSession = prev })
-	if err := app.ACPStart(pid, "opencode"); err != nil {
+	if err := app.acpStartProfile(pid, acp.Info{Name: "fake"}); err != nil {
 		t.Fatalf("ACPStart: %v", err)
 	}
 	if writeHandler == nil {
@@ -665,7 +680,7 @@ func TestACPWritePermissionDiffPayload(t *testing.T) {
 		return fp, nil
 	}
 	t.Cleanup(func() { acpStartSession = prev })
-	if err := app.ACPStart(pid, "opencode"); err != nil {
+	if err := app.acpStartProfile(pid, acp.Info{Name: "fake"}); err != nil {
 		t.Fatalf("ACPStart: %v", err)
 	}
 
@@ -772,7 +787,7 @@ func TestACPPromptErrorSurfacedInChat(t *testing.T) {
 	app, sink, pid := newAgentTestApp(t)
 	fp := &fakePrompter{}
 	installFakeAgent(t, fp)
-	if err := app.ACPStart(pid, "opencode"); err != nil {
+	if err := app.acpStartProfile(pid, acp.Info{Name: "fake"}); err != nil {
 		t.Fatalf("ACPStart: %v", err)
 	}
 
@@ -858,7 +873,7 @@ func TestACPSessionsCRUD(t *testing.T) {
 	app, _, pid := newAgentTestApp(t)
 	installFakeAgent(t, &fakePrompter{})
 
-	if err := app.ACPStart(pid, "opencode"); err != nil {
+	if err := app.acpStartProfile(pid, acp.Info{Name: "fake"}); err != nil {
 		t.Fatalf("ACPStart: %v", err)
 	}
 	if err := app.ACPSendPrompt(pid, "fix the login bug"); err != nil {
@@ -913,7 +928,7 @@ func TestACPSessionsCRUD(t *testing.T) {
 func TestACPOpenSessionSwitchesTranscript(t *testing.T) {
 	app, _, pid := newAgentTestApp(t)
 	installFakeAgent(t, &fakePrompter{})
-	if err := app.ACPStart(pid, "opencode"); err != nil {
+	if err := app.acpStartProfile(pid, acp.Info{Name: "fake"}); err != nil {
 		t.Fatalf("ACPStart: %v", err)
 	}
 	if err := app.ACPSendPrompt(pid, "first session prompt"); err != nil {
@@ -938,10 +953,11 @@ func TestACPOpenSessionSwitchesTranscript(t *testing.T) {
 	if err := app.ACPOpenSession(pid, firstID); err != nil {
 		t.Fatalf("ACPOpenSession: %v", err)
 	}
-	entries, err := app.ACPLoadTranscript(pid)
+	transcript, err := app.ACPLoadTranscript(pid)
 	if err != nil {
 		t.Fatalf("LoadTranscript: %v", err)
 	}
+	entries := transcript.Entries
 	found := false
 	for _, e := range entries {
 		if e.Text == "first session prompt" {
@@ -959,7 +975,7 @@ func TestACPOpenSessionSwitchesTranscript(t *testing.T) {
 func TestACPClearTranscriptRefusesWhileRunning(t *testing.T) {
 	app, _, pid := newAgentTestApp(t)
 	installFakeAgent(t, &fakePrompter{})
-	if err := app.ACPStart(pid, "opencode"); err != nil {
+	if err := app.acpStartProfile(pid, acp.Info{Name: "fake"}); err != nil {
 		t.Fatalf("ACPStart: %v", err)
 	}
 	if err := app.ACPSendPrompt(pid, "clear me"); err != nil {
@@ -967,13 +983,13 @@ func TestACPClearTranscriptRefusesWhileRunning(t *testing.T) {
 	}
 	sessions, _ := app.ACPSessions(pid)
 	sid := sessions[0].ID
-	if err := app.ACPClearTranscript(pid); err == nil {
+	if err := app.ACPClearTranscript(pid, sid); err == nil {
 		t.Fatal("want error clearing the active session while the harness runs")
 	}
 	if err := app.ACPStop(pid); err != nil {
 		t.Fatalf("ACPStop: %v", err)
 	}
-	if err := app.ACPClearTranscript(pid); err != nil {
+	if err := app.ACPClearTranscript(pid, sid); err != nil {
 		t.Fatalf("clear after stop: %v", err)
 	}
 	entries, err := app.chats.Read(sid)
@@ -991,7 +1007,7 @@ func TestACPClearTranscriptRefusesWhileRunning(t *testing.T) {
 func TestACPDeleteSessionRefusesActiveWhileRunning(t *testing.T) {
 	app, _, pid := newAgentTestApp(t)
 	installFakeAgent(t, &fakePrompter{})
-	if err := app.ACPStart(pid, "opencode"); err != nil {
+	if err := app.acpStartProfile(pid, acp.Info{Name: "fake"}); err != nil {
 		t.Fatalf("ACPStart: %v", err)
 	}
 	if err := app.ACPSendPrompt(pid, "active session"); err != nil {

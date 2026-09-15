@@ -7,6 +7,7 @@ export {
 };
 
 export type {
+    AgentTranscript,
     Entry,
     GitSyncInfo,
     Health,

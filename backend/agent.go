@@ -33,6 +33,12 @@ const (
 	AgentStateNoHarness   = "no-harness"
 )
 
+// AgentTranscript pairs persisted entries with the session they belong to.
+type AgentTranscript struct {
+	SessionID string             `json:"sessionID"`
+	Entries   []agentstore.Entry `json:"entries"`
+}
+
 // acpPermissionTimeout bounds how long a permission request blocks the agent
 // before it is answered as cancelled.
 const acpPermissionTimeout = 60 * time.Second
@@ -520,12 +526,13 @@ func (a *App) ACPStop(projectID string) error {
 
 // ACPLoadTranscript returns the persisted entries for the project's active
 // (or latest) session.
-func (a *App) ACPLoadTranscript(projectID string) ([]agentstore.Entry, error) {
+func (a *App) ACPLoadTranscript(projectID string) (AgentTranscript, error) {
 	chatID := a.chatIDForEmit(projectID)
 	if chatID == "" {
-		return []agentstore.Entry{}, nil
+		return AgentTranscript{Entries: []agentstore.Entry{}}, nil
 	}
-	return a.chats.Read(chatID)
+	entries, err := a.chats.Read(chatID)
+	return AgentTranscript{SessionID: chatID, Entries: entries}, err
 }
 
 // ACPSessions lists the project's persisted agent sessions (newest first).
@@ -537,19 +544,8 @@ func (a *App) ACPSessions(projectID string) ([]agentstore.SessionMeta, error) {
 // with a running harness it re-points the transcript and re-emits it; without
 // one it just emits the stored transcript (no auto-start).
 func (a *App) ACPOpenSession(projectID, sessionID string) error {
-	sessions, err := a.chats.ListSessions(projectID)
-	if err != nil {
-		return fmt.Errorf("acp: list sessions: %w", err)
-	}
-	found := false
-	for _, s := range sessions {
-		if s.ID == sessionID {
-			found = true
-			break
-		}
-	}
-	if !found {
-		return fmt.Errorf("acp: no session %q for project", sessionID)
+	if err := a.validateChatSession(projectID, sessionID); err != nil {
+		return err
 	}
 	a.mu.Lock()
 	ag := a.agents[projectID]
@@ -588,24 +584,45 @@ func (a *App) ACPRenameSession(sessionID, title string) error {
 	return a.chats.RenameSession(sessionID, title)
 }
 
-// ACPClearTranscript deletes every entry of the active/latest session. Like
-// ACPDeleteSession it refuses while a running harness is pointed at that
-// session, since deleting the record would strand the harness's writes.
-func (a *App) ACPClearTranscript(projectID string) error {
-	chatID := a.chatIDForEmit(projectID)
-	if chatID == "" {
-		return nil
+// ACPClearTranscript deletes the session displayed by the caller. It refuses
+// while a harness is running or starting on that session, since deleting the
+// record would strand the harness's writes.
+func (a *App) ACPClearTranscript(projectID, sessionID string) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if err := a.validateChatSession(projectID, sessionID); err != nil {
+		return err
 	}
-	if a.activeSessionID(projectID) == chatID {
-		if ag := a.agentFor(projectID); ag != nil && ag.get() != nil {
+	ag := a.agents[projectID]
+	if ag != nil {
+		ag.mu.Lock()
+		defer ag.mu.Unlock()
+		if ag.chatID == sessionID && (ag.session != nil || ag.starting) {
 			return errors.New("acp: cannot clear the active session while the harness is running")
 		}
 	}
-	if err := a.chats.DeleteSession(chatID); err != nil {
+	if err := a.chats.DeleteSession(sessionID); err != nil {
 		return fmt.Errorf("acp: clear transcript: %w", err)
 	}
-	a.emitTranscript(projectID, chatID)
+	if ag != nil && ag.chatID == sessionID {
+		ag.chatID = ""
+	}
+	// The caller clears only the matching view after success. Emitting a
+	// transcript here could replace another session opened during this call.
 	return nil
+}
+
+func (a *App) validateChatSession(projectID, sessionID string) error {
+	sessions, err := a.chats.ListSessions(projectID)
+	if err != nil {
+		return fmt.Errorf("acp: list sessions: %w", err)
+	}
+	for _, s := range sessions {
+		if s.ID == sessionID {
+			return nil
+		}
+	}
+	return fmt.Errorf("acp: no session %q for project", sessionID)
 }
 
 func (a *App) agentFor(projectID string) *agentSession {

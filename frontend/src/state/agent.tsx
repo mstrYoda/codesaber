@@ -3,6 +3,8 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
+  useRef,
   useState,
 } from 'react'
 import { Events } from '@wailsio/runtime'
@@ -65,9 +67,11 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({
   const [state, setState] = useState<Record<string, AgentProjectState>>({})
   const [sessions, setSessions] =
     useState<Record<string, SessionMeta[]>>(emptySessions)
-  const [activeSession, setActiveSession] = useState<
-    Record<string, string | null>
-  >({})
+  const activeSession = useMemo(
+    () => Object.fromEntries(Object.entries(state).map(([id, s]) => [id, s.sessionId])),
+    [state],
+  )
+  const transcriptVersion = useRef<Record<string, number>>({})
   const [harnesses, setHarnesses] = useState<HarnessInfo[]>([])
 
   const patch = useCallback(
@@ -84,10 +88,6 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       const list = await App.ACPSessions(projectId)
       setSessions((prev) => ({ ...prev, [projectId]: list ?? [] }))
-      setActiveSession((prev) => ({
-        ...prev,
-        [projectId]: prev[projectId] ?? (list?.[0]?.id ?? null),
-      }))
     } catch {
       setSessions((prev) => ({ ...prev, [projectId]: [] }))
     }
@@ -174,26 +174,22 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({
         entries?: TranscriptEntry[]
       }
       if (!projectId) return
+      transcriptVersion.current[projectId] = (transcriptVersion.current[projectId] ?? 0) + 1
       patch(projectId, (s) =>
-        reduceTranscript({ ...s, sessionId: sessionID ?? s.sessionId }, entries ?? []),
+        reduceTranscript({ ...s, sessionId: sessionID || null }, entries ?? []),
       )
-      if (sessionID) setActiveSession((prev) => ({ ...prev, [projectId]: sessionID }))
       void refreshSessions(projectId)
     })
     const onRemoved = Events.On('project.removed', (ev: any) => {
       const { id } = (ev.data ?? {}) as { id?: string }
       if (!id) return
+      transcriptVersion.current[id] = (transcriptVersion.current[id] ?? 0) + 1
       setState((prev) => {
         const next = { ...prev }
         delete next[id]
         return next
       })
       setSessions((prev) => {
-        const next = { ...prev }
-        delete next[id]
-        return next
-      })
-      setActiveSession((prev) => {
         const next = { ...prev }
         delete next[id]
         return next
@@ -221,12 +217,20 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({
   // event only fires on backend-side transitions).
   useEffect(() => {
     if (!activeId) return
+    const version = (transcriptVersion.current[activeId] ?? 0) + 1
+    transcriptVersion.current[activeId] = version
+    let cancelled = false
     void refreshSessions(activeId)
     App.ACPLoadTranscript(activeId)
-      .then((entries) =>
-        patch(activeId, (s) => reduceTranscript(s, entries ?? [])),
-      )
+      .then(({ sessionID, entries }) => {
+        // A disk read must not replace a later selection or clear.
+        if (cancelled || transcriptVersion.current[activeId] !== version) return
+        patch(activeId, (s) =>
+          reduceTranscript({ ...s, sessionId: sessionID || null }, entries ?? []),
+        )
+      })
       .catch(() => {})
+    return () => { cancelled = true }
   }, [activeId, patch, refreshSessions])
 
   const send = useCallback(async (projectId: string, text: string) => {
@@ -262,10 +266,16 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const clearTranscript = useCallback(
     async (projectId: string) => {
-      await App.ACPClearTranscript(projectId)
+      const sessionID = state[projectId]?.sessionId
+      if (!sessionID) return
+      await App.ACPClearTranscript(projectId, sessionID)
+      transcriptVersion.current[projectId] = (transcriptVersion.current[projectId] ?? 0) + 1
+      patch(projectId, (s) => s.sessionId === sessionID
+        ? reduceTranscript({ ...s, sessionId: null }, [])
+        : s)
       void refreshSessions(projectId)
     },
-    [refreshSessions],
+    [state, patch, refreshSessions],
   )
 
   const respondPermission = useCallback(
@@ -290,7 +300,6 @@ export const AgentProvider: React.FC<{ children: React.ReactNode }> = ({
   const openSession = useCallback(
     async (projectId: string, sessionID: string) => {
       await App.ACPOpenSession(projectId, sessionID)
-      setActiveSession((prev) => ({ ...prev, [projectId]: sessionID }))
     },
     [],
   )

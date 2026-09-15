@@ -45,6 +45,11 @@ jobs:
       - name: Create dist stub for go:embed
         run: mkdir -p frontend/dist && echo '<!doctype html><title>placeholder</title>' > frontend/dist/index.html
 
+      - name: Install Linux CGO deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev
+
       - name: Vet
         run: go vet ./...
 
