@@ -22,6 +22,7 @@ type Model struct {
 	SearchIncludeGlobs string `json:"searchIncludeGlobs"`
 	AccentColor        string `json:"accentColor,omitempty"` // hex, "" default #4a5bfc
 	PerfHud            bool   `json:"perfHud,omitempty"`
+	VimMode            bool   `json:"vimMode,omitempty"`
 }
 
 // Default returns the settings used when nothing has been persisted yet.

@@ -11,6 +11,7 @@ export type Settings = Model
 
 const KEY = 'codesaber.bracketColors'
 const HUD_KEY = 'codesaber.perfHud'
+const VIM_KEY = 'codesaber.vim'
 export const SETTINGS_EVENT = 'codesaber:settings'
 
 export const DEFAULTS: Settings = {
@@ -21,6 +22,7 @@ export const DEFAULTS: Settings = {
   searchIncludeGlobs: '',
   accentColor: '', // '' = #4a5bfc
   perfHud: false,
+  vimMode: false,
 }
 
 // Effective editor font size in px (0 persisted = default 13).
@@ -60,6 +62,7 @@ const start = (): void => {
   try {
     state.bracketColors = window.localStorage.getItem(KEY) !== 'false'
     state.perfHud = window.localStorage.getItem(HUD_KEY) === 'true'
+    state.vimMode = window.localStorage.getItem(VIM_KEY) === 'true'
   } catch {
     // storage unavailable — defaults apply
   }
@@ -96,6 +99,8 @@ export const updateSettings = (patch: Partial<Settings>): void => {
       window.localStorage.setItem(KEY, String(patch.bracketColors))
     if (patch.perfHud !== undefined)
       window.localStorage.setItem(HUD_KEY, String(patch.perfHud))
+    if (patch.vimMode !== undefined)
+      window.localStorage.setItem(VIM_KEY, String(patch.vimMode))
   } catch {
     // storage unavailable — setting just won't be cached
   }
@@ -109,6 +114,7 @@ export const updateSettings = (patch: Partial<Settings>): void => {
     searchIncludeGlobs: state.searchIncludeGlobs,
     accentColor: state.accentColor,
     perfHud: state.perfHud,
+    vimMode: state.vimMode,
   }).catch(() => {})
 }
 

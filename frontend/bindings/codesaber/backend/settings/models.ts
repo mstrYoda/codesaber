@@ -26,4 +26,5 @@ export interface Model {
      */
     "accentColor"?: string;
     "perfHud"?: boolean;
+    "vimMode"?: boolean;
 }

@@ -92,6 +92,12 @@ const SettingsPanel: React.FC = () => {
           on={settings.minimap}
           onToggle={() => update({ minimap: !settings.minimap })}
         />
+        <ToggleRow
+          label="Vim mode"
+          desc="Normal/insert/visual modes with vim motions and operators"
+          on={!!settings.vimMode}
+          onToggle={() => update({ vimMode: !settings.vimMode })}
+        />
         <div className="flex items-center justify-between gap-4 py-2">
           <div className="min-w-0">
             <div className="text-primary text-[12px]">Editor font size</div>
