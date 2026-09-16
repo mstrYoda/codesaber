@@ -17,6 +17,7 @@ type Change struct {
 
 type Status struct {
 	Branch    string   `json:"branch"`
+	Head      string   `json:"head"`
 	Staged    []Change `json:"staged"`
 	Unstaged  []Change `json:"unstaged"`
 	Untracked []Change `json:"untracked"`

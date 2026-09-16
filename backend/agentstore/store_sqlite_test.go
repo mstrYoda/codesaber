@@ -99,6 +99,7 @@ func TestSQLiteFallbackDirWhenUserConfigFails(t *testing.T) {
 	if err := s.open(); err != nil {
 		t.Fatalf("open with fallback: %v", err)
 	}
+	t.Cleanup(func() { _ = s.Close() })
 	if err := s.Append("s1", "p1", Entry{Role: "user", Kind: KindText, Text: "x"}); err != nil {
 		t.Fatalf("Append: %v", err)
 	}

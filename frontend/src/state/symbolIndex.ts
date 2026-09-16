@@ -14,7 +14,7 @@ export interface Sym {
 }
 
 export const supportedExt = (path: string): boolean => {
-  const base = path.slice(path.lastIndexOf('/') + 1)
+  const base = path.slice(Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\')) + 1)
   const dot = base.lastIndexOf('.')
   if (dot <= 0) return false
   const ext = base.slice(dot + 1)
@@ -24,7 +24,7 @@ export const supportedExt = (path: string): boolean => {
 // TS/TSX/JS grammars share the same node shapes; pick per extension.
 type LangName = 'go' | 'typescript' | 'tsx' | 'javascript' | 'php'
 const langForPath = (path: string): LangName => {
-  const base = path.slice(path.lastIndexOf('/') + 1)
+  const base = path.slice(Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\')) + 1)
   const dot = base.lastIndexOf('.')
   const ext = dot <= 0 ? '' : base.slice(dot + 1)
   if (ext === 'go') return 'go'

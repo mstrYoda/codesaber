@@ -28,6 +28,12 @@ func NewRegistry(notify func()) *Registry {
 }
 
 func (r *Registry) Add(root string) (*Project, error) {
+	return r.AddWithID(root, "")
+}
+
+// AddWithID reuses a persisted project identity so transcripts remain attached
+// when the project is reopened. Empty IDs are allocated for new projects.
+func (r *Registry) AddWithID(root, id string) (*Project, error) {
 	abs, err := filepath.Abs(root)
 	if err != nil {
 		return nil, fmt.Errorf("resolve path: %w", err)
@@ -41,6 +47,13 @@ func (r *Registry) Add(root string) (*Project, error) {
 	}
 
 	r.mu.Lock()
+	if id == "" {
+		id = uuid.NewString()
+	}
+	if _, exists := r.projects[id]; exists {
+		r.mu.Unlock()
+		return nil, fmt.Errorf("project already open: %s", id)
+	}
 	for _, p := range r.projects {
 		if p.Root == abs {
 			r.mu.Unlock()
@@ -49,7 +62,7 @@ func (r *Registry) Add(root string) (*Project, error) {
 	}
 	var notifyFn func()
 	p := &Project{
-		ID:       uuid.NewString(),
+		ID:       id,
 		Name:     filepath.Base(abs),
 		Root:     abs,
 		Branch:   Branch(abs),

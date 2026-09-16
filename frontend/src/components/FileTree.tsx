@@ -39,8 +39,9 @@ interface PendingDelete {
 }
 
 const parentOf = (p: string) => {
-  const i = p.lastIndexOf('/')
-  return i <= 0 ? '/' : p.slice(0, i)
+  const i = Math.max(p.lastIndexOf('/'), p.lastIndexOf('\\'))
+  if (i === 2 && p[1] === ':') return p.slice(0, 3)
+  return i <= 0 ? p.slice(0, 1) : p.slice(0, i)
 }
 
 const FileTree: React.FC<{ root: string; projectId: string }> = ({
@@ -82,7 +83,7 @@ const FileTree: React.FC<{ root: string; projectId: string }> = ({
   }, [root])
 
   const depthOf = (p: string) =>
-    p === root ? 0 : p.slice(root.length).split('/').filter(Boolean).length
+    p === root ? 0 : p.slice(root.length).split(/[\\/]/).filter(Boolean).length
 
   // refresh re-fetches the root listing plus any expanded deep dirs so
   // watcher-driven fs.change events keep the tree current.
@@ -161,7 +162,7 @@ const FileTree: React.FC<{ root: string; projectId: string }> = ({
     }
     const visit = (e: Entry) => {
       if (emitted.has(e.path)) return
-      if (closed.some((p) => e.path.startsWith(p + '/'))) return
+      if (closed.some((p) => e.path.startsWith(p + '/') || e.path.startsWith(p + '\\'))) return
       emitted.add(e.path)
       push(e)
       if (e.dir && !openDirs.has(e.path)) {
@@ -224,7 +225,8 @@ const FileTree: React.FC<{ root: string; projectId: string }> = ({
     const isFolder = folderIntent || raw.endsWith('/')
     const clean = isFolder ? raw.replace(/\/+$/, '') : raw
     if (!clean) return
-    const path = creating.parent + '/' + clean
+    const separator = creating.parent.includes('\\') ? '\\' : '/'
+    const path = creating.parent.replace(/[\\/]+$/, '') + separator + clean.replace(/[\\/]/g, separator)
     const run = isFolder ? App.CreateFolder(path) : App.CreateFile(path)
     void run
       .then(() => {
@@ -263,9 +265,13 @@ const FileTree: React.FC<{ root: string; projectId: string }> = ({
     const onKey = (e: KeyboardEvent) => {
       if (!e.metaKey && !e.ctrlKey) return
       if (e.key.toLowerCase() !== 'v') return
-      // Inputs/textareas own ⌘V for text pasting.
+      // Text controls, including CodeMirror's contenteditable surface, own paste.
       const el = document.activeElement
-      if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)
+      if (
+        el instanceof HTMLInputElement ||
+        el instanceof HTMLTextAreaElement ||
+        (el instanceof HTMLElement && el.isContentEditable)
+      )
         return
       e.preventDefault()
       App.PasteboardRead()
@@ -321,7 +327,7 @@ const FileTree: React.FC<{ root: string; projectId: string }> = ({
   const deleteRow = (path: string) => {
     setPendingDelete({
       path,
-      name: path.slice(path.lastIndexOf('/') + 1) || path,
+      name: path.slice(Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\')) + 1) || path,
     })
   }
 

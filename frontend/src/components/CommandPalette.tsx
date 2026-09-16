@@ -8,6 +8,7 @@ import React, {
 import { useProjects } from '../state/projects'
 import { APP_VERSION } from '../version'
 import { useSettings } from '../lib/settings'
+import { shortcut } from '../lib/platform'
 
 interface Command {
   id: string
@@ -104,7 +105,7 @@ const CommandPalette: React.FC = () => {
     cmds.push({
       id: 'toggle-perf-hud',
       name: `${settings.perfHud ? '☑' : '☐'} Toggle Perf HUD`,
-      hint: 'Live IDE health overlay (⌘⇧H, persisted)',
+      hint: `Live IDE health overlay (${shortcut('Shift+H')}, persisted)`,
       run: () => update({ perfHud: !settings.perfHud }),
     })
     cmds.push({

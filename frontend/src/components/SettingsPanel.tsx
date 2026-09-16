@@ -134,14 +134,14 @@ const SettingsPanel: React.FC = () => {
           <div className="text-primary text-[12px] mb-1">Default shell</div>
           <input
             className="no-drag w-full h-8 px-2.5 rounded-lg border border-[#333639] bg-[#1e1f22] text-primary font-mono text-[11px] placeholder:text-dim outline-none focus:border-[#4a4f55]"
-            placeholder="$SHELL or /bin/zsh"
+            placeholder="System default (PowerShell on Windows)"
             aria-label="Default shell"
             value={settings.terminalShell}
             onChange={(e) => update({ terminalShell: e.target.value })}
           />
           <div className="text-dim text-[10px] mt-1">
-            Absolute path to the shell binary for new terminals. Empty uses
-            your login shell ($SHELL, falling back to zsh). Applies to newly
+            Path or executable name of the shell for new terminals. Empty uses
+            PowerShell on Windows or /bin/sh on Unix. Applies to newly
             opened terminals.
           </div>
         </div>

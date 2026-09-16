@@ -198,10 +198,24 @@ func NewWith(sink adapter.EventSink, storePath string) *App {
 // filesystem watcher and emits "project.added". Watcher events are re-emitted
 // as "fs.change" with {projectId, path, op}.
 func (a *App) OpenProject(root string) (project.Project, error) {
-	p, err := a.reg.Add(root)
+	abs, err := filepath.Abs(root)
 	if err != nil {
 		return project.Project{}, err
 	}
+	var savedID string
+	for _, recent := range a.store.List() {
+		if recent.Root == abs {
+			savedID = recent.ID
+			break
+		}
+	}
+	p, err := a.reg.AddWithID(abs, savedID)
+	if err != nil {
+		return project.Project{}, err
+	}
+	a.mu.Lock()
+	delete(a.closed, p.ID)
+	a.mu.Unlock()
 	// Fill in the real branch before Remember/emitting so the recents store
 	// and "project.added" payload carry the true value, not the stub.
 	if b := git.BranchAt(p.Root); b != "" {
@@ -566,7 +580,7 @@ func (a *App) EnsureWorkspaceWindow() {
 	adapter.EnsureWorkspaceWindow()
 }
 
-// CloseWelcome hides the welcome window after a project has been opened.
+// CloseWelcome closes the welcome window after a project has been opened.
 func (a *App) CloseWelcome() {
 	adapter.CloseWelcomeWindow()
 }
@@ -1077,7 +1091,7 @@ func (a *App) LSPSymbols(projectID, path string) ([]lsp.DocumentSymbol, error) {
 
 // TermStart spawns a shell session inside a PTY for the project and returns
 // its termID ("projectId|suffix"). shell is the binary to run ("" defaults
-// to /bin/sh); cwd is the project root.
+// to PowerShell on Windows, /bin/sh on Unix); cwd is the project root.
 func (a *App) TermStart(projectID, shell, suffix string) (string, error) {
 	root, err := a.resolveRoot(projectID)
 	if err != nil {

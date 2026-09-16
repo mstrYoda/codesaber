@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -45,7 +46,8 @@ type ClientHandlers struct {
 // Conn is a JSON-RPC stdio connection to an ACP agent child process.
 // It is safe for concurrent use.
 type Conn struct {
-	cmd *exec.Cmd
+	cmd              *exec.Cmd
+	closeProcessTree func()
 
 	// child stdout (we read), child stdin (we write)
 	stdout io.Reader
@@ -72,7 +74,9 @@ type Conn struct {
 	// drop-on-full Notify policy (diagnostics only; read racily).
 	droppedNotifies atomic.Uint64
 
-	closed atomic.Bool
+	closed        atomic.Bool
+	observerMu    sync.RWMutex
+	observeUpdate func(any)
 }
 
 // newConnFromPipes wires a Conn onto arbitrary pipes (used by tests to drive
@@ -95,6 +99,11 @@ func Spawn(profile Info, handlers ClientHandlers) (*Conn, error) {
 		return nil, errors.New("acp: empty command for profile " + profile.Name)
 	}
 	cmd := exec.Command(profile.Command[0], profile.Command[1:]...)
+	configureChildProcess(cmd)
+	cmd.Env = providerEnvironment(profile.Name, profile.Command)
+	if profile.Name == "antigravity" {
+		cmd.Dir = filepath.Dir(profile.Command[0])
+	}
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return nil, fmt.Errorf("acp: stdout pipe: %w", err)
@@ -110,8 +119,15 @@ func Spawn(profile Info, handlers ClientHandlers) (*Conn, error) {
 	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("acp: spawn %s: %w", profile.Name, err)
 	}
+	closeTree, err := trackChildProcess(cmd)
+	if err != nil {
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+		return nil, fmt.Errorf("acp: manage child process: %w", err)
+	}
 	c := newConnFromPipes(stdout, stdin, handlers)
 	c.cmd = cmd
+	c.closeProcessTree = closeTree
 	go c.drainStderr(stderr)
 	return c, nil
 }
@@ -160,6 +176,9 @@ func (c *Conn) Close() error {
 	if c.closed.Swap(true) {
 		return nil
 	}
+	if c.closeProcessTree != nil {
+		defer c.closeProcessTree()
+	}
 	if c.stdin != nil {
 		c.stdin.Close()
 	}
@@ -171,6 +190,9 @@ func (c *Conn) Close() error {
 	select {
 	case <-done:
 	case <-time.After(closeWaitTimeout):
+		if c.closeProcessTree != nil {
+			c.closeProcessTree()
+		}
 		_ = c.cmd.Process.Kill()
 		<-done
 	}
@@ -246,6 +268,14 @@ func (c *Conn) dispatch(f Frame) {
 		// Responses are serialized through writeMu in writeLine.
 		go c.handleAgentRequest(f)
 	case f.Method != "":
+		if f.Method == MethodSessionUpdate {
+			c.observerMu.RLock()
+			observer := c.observeUpdate
+			c.observerMu.RUnlock()
+			if observer != nil {
+				observer(f.Params)
+			}
+		}
 		// notification for the session client layer; drop-on-full so readLoop
 		// never blocks (see notifyBuffer).
 		select {

@@ -126,7 +126,10 @@ func TestSanitize_ShellWarnNotFail(t *testing.T) {
 	}
 
 	// a real executable must not warn
-	real := "/bin/sh"
+	real, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
 	var warns2 []string
 	Sanitize(Model{TerminalShell: real}, func(msg string) { warns2 = append(warns2, msg) })
 	if len(warns2) != 0 {
