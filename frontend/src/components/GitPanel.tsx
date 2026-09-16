@@ -6,6 +6,7 @@ import { useProjects } from '../state/projects'
 import { useAgent } from '../state/agent'
 import { useGit, diffKey } from '../state/git'
 import { useTabs } from '../state/tabs'
+import { shortcut } from '../lib/platform'
 import {
   isBinaryPath,
   humanizeSize,
@@ -16,7 +17,9 @@ const statusLetter = (s: ChangeStatus) =>
   s === 65 /* A */ ? 'A' : s === 68 /* D */ ? 'D' : s === 85 /* U */ ? 'U' : 'M'
 
 const relOf = (root: string, path: string) =>
-  root && path.startsWith(root + '/') ? path.slice(root.length + 1) : path
+  root && (path.startsWith(root + '/') || path.startsWith(root + '\\'))
+    ? path.slice(root.length + 1).replace(/\\/g, '/')
+    : path
 
 // Status letter badges: filled rounded chips with per-status colors.
 const LETTER_BADGE: Record<string, { bg: string; fg: string }> = {
@@ -369,21 +372,25 @@ const GitPanel: React.FC = () => {
       .catch(() => setBranches([]))
   }, [activeId, branchOpen])
 
-  // Sync pill state: refresh on activation, branch change and after fetches.
+  // HEAD changes refresh history/sync after commits on the same branch too.
   useEffect(() => {
     if (!activeId) return
+    let cancelled = false
     App.GitAheadBehind(activeId)
-      .then((s) => setSync(s?.remote ? { remote: s.remote, ahead: s.ahead, behind: s.behind } : null))
-      .catch(() => setSync(null))
-  }, [activeId, st?.branch])
+      .then((s) => { if (!cancelled) setSync(s?.remote ? { remote: s.remote, ahead: s.ahead, behind: s.behind } : null) })
+      .catch(() => { if (!cancelled) setSync(null) })
+    return () => { cancelled = true }
+  }, [activeId, st?.branch, st?.head])
 
   // Recent-commits log: fetched for both tabs (cheap, capped at 20).
   useEffect(() => {
     if (!activeId) return
+    let cancelled = false
     App.GitLog(activeId, 20)
-      .then((l) => setLog(l ?? []))
-      .catch(() => setLog([]))
-  }, [activeId, st?.branch])
+      .then((l) => { if (!cancelled) setLog(l ?? []) })
+      .catch(() => { if (!cancelled) setLog([]) })
+    return () => { cancelled = true }
+  }, [activeId, st?.branch, st?.head])
 
   // Per-file +/- stats: lazily fetched for visible rows in capped batches.
   // Binary paths are skipped entirely — they render a human size (untracked)
@@ -550,8 +557,8 @@ const GitPanel: React.FC = () => {
             <span className="truncate font-semibold text-white">
               {st?.branch || '(none)'}
             </span>
-            {st?.branch && (
-              <span className="truncate shrink text-dim">{`origin/${st.branch}`}</span>
+            {st?.branch && sync?.remote && (
+              <span className="truncate shrink text-dim">{`${sync.remote}/${st.branch}`}</span>
             )}
             <span className="shrink-0 ml-auto text-dim">⌄</span>
           </button>
@@ -771,7 +778,7 @@ const GitPanel: React.FC = () => {
           disabled={!agentRunning || aiBusy}
           title={
             agentRunning
-              ? 'Generate commit message with AI (⌘I)'
+              ? `Generate commit message with AI (${shortcut('I')})`
               : 'start an agent session first'
           }
           onClick={runAI}
@@ -779,7 +786,7 @@ const GitPanel: React.FC = () => {
           <span>✨</span>
           {aiBusy ? 'Generating…' : 'Generate Commit Message with AI'}
           <span className="absolute right-2 h-5 px-1.5 rounded bg-white/15 text-[10px] font-mono flex items-center">
-            ⌘I
+            {shortcut('I')}
           </span>
         </button>
         <textarea

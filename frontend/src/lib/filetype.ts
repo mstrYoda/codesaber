@@ -32,7 +32,7 @@ const BINARY_EXTS = new Set([
 ])
 
 export const extOf = (p: string) => {
-  const base = p.slice(p.lastIndexOf('/') + 1)
+  const base = p.slice(Math.max(p.lastIndexOf('/'), p.lastIndexOf('\\')) + 1)
   const dot = base.lastIndexOf('.')
   return dot === -1 ? '' : base.slice(dot + 1).toLowerCase()
 }

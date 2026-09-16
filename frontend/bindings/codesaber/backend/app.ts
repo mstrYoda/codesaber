@@ -40,6 +40,14 @@ import * as settings$0 from "./settings/models.js";
 // @ts-ignore: Unused imports
 import * as $models from "./models.js";
 
+export function ACPCancelInstall(): $CancellablePromise<void> {
+    return $Call.ByID(2867605842);
+}
+
+export function ACPCheck(projectID: string, name: string): $CancellablePromise<acp$0.Diagnostic> {
+    return $Call.ByID(1666269983, projectID, name);
+}
+
 /**
  * ACPClearTranscript deletes every entry of the active/latest session. Like
  * ACPDeleteSession it refuses while a running harness is pointed at that
@@ -65,12 +73,24 @@ export function ACPHarnesses(): $CancellablePromise<acp$0.Info[] | null> {
     return $Call.ByID(184583539);
 }
 
+export function ACPInstall(name: string, repair: boolean): $CancellablePromise<void> {
+    return $Call.ByID(179819704, name, repair);
+}
+
 /**
  * ACPLoadTranscript returns the persisted entries for the project's active
  * (or latest) session.
  */
 export function ACPLoadTranscript(projectID: string): $CancellablePromise<agentstore$0.Entry[] | null> {
     return $Call.ByID(1274648703, projectID);
+}
+
+export function ACPLogin(name: string): $CancellablePromise<void> {
+    return $Call.ByID(4052025354, name);
+}
+
+export function ACPModels(projectID: string): $CancellablePromise<acp$0.ModelState> {
+    return $Call.ByID(683733507, projectID);
 }
 
 /**
@@ -127,6 +147,10 @@ export function ACPSessions(projectID: string): $CancellablePromise<agentstore$0
     return $Call.ByID(157939588, projectID);
 }
 
+export function ACPSetModel(projectID: string, sessionID: string, modelID: string): $CancellablePromise<acp$0.ModelState> {
+    return $Call.ByID(3036603288, projectID, sessionID, modelID);
+}
+
 /**
  * ACPStart resolves the harness profile and spawns one ACP session for the
  * project (one session/connection MVP). After start the persisted transcript
@@ -142,6 +166,10 @@ export function ACPStart(projectID: string, harnessName: string): $CancellablePr
  */
 export function ACPStop(projectID: string): $CancellablePromise<void> {
     return $Call.ByID(3127032957, projectID);
+}
+
+export function ACPUseSeparateSettings(name: string, enabled: boolean): $CancellablePromise<void> {
+    return $Call.ByID(2766067788, name, enabled);
 }
 
 /**
@@ -177,7 +205,7 @@ export function CloseWatcher(projectID: string): $CancellablePromise<void> {
 }
 
 /**
- * CloseWelcome hides the welcome window after a project has been opened.
+ * CloseWelcome closes the welcome window after a project has been opened.
  */
 export function CloseWelcome(): $CancellablePromise<void> {
     return $Call.ByID(3845525055);
@@ -554,7 +582,7 @@ export function TermResize(termID: string, rows: number, cols: number): $Cancell
 /**
  * TermStart spawns a shell session inside a PTY for the project and returns
  * its termID ("projectId|suffix"). shell is the binary to run ("" defaults
- * to /bin/sh); cwd is the project root.
+ * to PowerShell on Windows, /bin/sh on Unix); cwd is the project root.
  */
 export function TermStart(projectID: string, shell: string, suffix: string): $CancellablePromise<string> {
     return $Call.ByID(1516469139, projectID, shell, suffix);

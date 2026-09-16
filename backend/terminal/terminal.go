@@ -3,11 +3,8 @@ package terminal
 
 import (
 	"errors"
-	"os"
-	"os/exec"
+	"io"
 	"sync"
-
-	"github.com/creack/pty"
 )
 
 const (
@@ -33,11 +30,18 @@ type Event struct {
 	Code      int
 }
 
+// shellProcess hides the Unix PTY / Windows ConPTY implementation.
+type shellProcess interface {
+	io.ReadWriteCloser
+	Resize(rows, cols int) error
+	Wait() int
+	Kill() error
+}
+
 // Session is a live PTY attached to a child shell process.
 type Session struct {
 	opts   SessionOpts
-	cmd    *exec.Cmd
-	ptmx   *os.File
+	pty    shellProcess
 	data   chan Event
 	exited chan struct{}
 	ready  chan struct{}
@@ -54,7 +58,7 @@ type Session struct {
 func New(opts SessionOpts) (*Session, error) {
 	shell := opts.Shell
 	if shell == "" {
-		shell = "/bin/sh"
+		shell = defaultShell()
 	}
 	rows, cols := opts.Rows, opts.Cols
 	if rows <= 0 {
@@ -63,17 +67,16 @@ func New(opts SessionOpts) (*Session, error) {
 	if cols <= 0 {
 		cols = defaultCols
 	}
-	cmd := exec.Command(shell)
-	cmd.Dir = opts.Cwd
-	cmd.Env = append(cmd.Environ(), "TERM=xterm-256color")
-	ptmx, err := pty.StartWithSize(cmd, &pty.Winsize{Rows: uint16(rows), Cols: uint16(cols)})
+	if rows > 32767 || cols > 32767 {
+		return nil, errors.New("terminal: invalid size")
+	}
+	ptmx, err := startShell(shell, opts.Cwd, rows, cols)
 	if err != nil {
 		return nil, err
 	}
 	s := &Session{
 		opts:   opts,
-		cmd:    cmd,
-		ptmx:   ptmx,
+		pty:    ptmx,
 		data:   make(chan Event, 64),
 		exited: make(chan struct{}),
 		ready:  make(chan struct{}),
@@ -98,7 +101,7 @@ func (s *Session) readLoop() {
 	defer close(s.data)
 	buf := make([]byte, maxFrameSize)
 	for {
-		n, err := s.ptmx.Read(buf)
+		n, err := s.pty.Read(buf)
 		if n > 0 {
 			frame := make([]byte, n)
 			copy(frame, buf[:n])
@@ -124,41 +127,34 @@ func (s *Session) readLoop() {
 // wait blocks for the child process exactly once and records its exit code.
 func (s *Session) wait() int {
 	s.waitOnce.Do(func() {
-		_ = s.cmd.Wait()
-		if s.cmd.ProcessState != nil {
-			if code := s.cmd.ProcessState.ExitCode(); code > 0 {
-				s.waitCode = code
-			}
-		}
+		s.waitCode = s.pty.Wait()
 	})
 	return s.waitCode
 }
 
 // Input writes bytes to the shell's side of the PTY.
 func (s *Session) Input(b []byte) error {
-	_, err := s.ptmx.Write(b)
+	_, err := s.pty.Write(b)
 	return err
 }
 
 // Resize updates the PTY window size.
 func (s *Session) Resize(rows, cols int) error {
-	if rows <= 0 || cols <= 0 {
+	if rows <= 0 || cols <= 0 || rows > 32767 || cols > 32767 {
 		return errors.New("terminal: invalid size")
 	}
-	return pty.Setsize(s.ptmx, &pty.Winsize{Rows: uint16(rows), Cols: uint16(cols)})
+	return s.pty.Resize(rows, cols)
 }
 
 // Close terminates the shell, releases the PTY and joins the reader
 // goroutine. It is idempotent and safe for concurrent use.
 func (s *Session) Close() error {
 	s.closeOnce.Do(func() {
-		if s.cmd.Process != nil {
-			_ = s.cmd.Process.Kill()
-		}
+		_ = s.pty.Kill()
 	})
 	<-s.ready
 	s.wait()
-	_ = s.ptmx.Close()
+	_ = s.pty.Close()
 	// Join the read loop FIRST: its final Exit event must be delivered while
 	// the exited guard is still open, otherwise the select can race and drop
 	// the exit notification the facade depends on.

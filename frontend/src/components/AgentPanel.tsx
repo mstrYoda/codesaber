@@ -11,6 +11,8 @@ import {
 } from '../state/agent'
 import MiniDiff, { diffCounts } from './MiniDiff'
 import ConfirmDialog from './ConfirmDialog'
+import ProviderSetup from './ProviderSetup'
+import ModelPicker from './ModelPicker'
 
 // ---- helpers -------------------------------------------------------------
 const statusChip = (status: string) => {
@@ -207,11 +209,12 @@ const SessionRow: React.FC<{
 const AgentPanel: React.FC = () => {
   const { activeId } = useProjects()
   const {
-    state, sessions, activeSession, harnesses,
+    state, sessions, activeSession,
     send, start, stop, newSession, clearTranscript, respondPermission,
     listSessions, openSession, deleteSession, renameSession,
   } = useAgent()
   const [draft, setDraft] = useState('')
+  const [modelBusy, setModelBusy] = useState(false)
   const [tab, setTab] = useState<'chat' | 'history'>('chat')
   const [confirmDelete, setConfirmDelete] = useState<SessionMeta | null>(null)
   const [histErr, setHistErr] = useState<string | null>(null)
@@ -308,7 +311,7 @@ const AgentPanel: React.FC = () => {
 
   const doSend = () => {
     const text = draft.trim()
-    if (!text || !activeId || thinking || !running) return
+    if (!text || !activeId || thinking || modelBusy || !running) return
     const hist = histRef.current[activeId] ?? (histRef.current[activeId] = [])
     if (hist[hist.length - 1] !== text) hist.push(text)
     histIdxRef.current[activeId] = hist.length
@@ -365,10 +368,11 @@ const AgentPanel: React.FC = () => {
           >
             ■ Stop
           </button>
-        ) : (
-          <HarnessPicker harnesses={harnesses} onStart={(name) => void start(activeId, name)} />
-        )}
+        ) : null}
       </div>
+
+      {!running && <ProviderSetup key={activeId} projectId={activeId} onStart={name => start(activeId, name)} />}
+      {running && <ModelPicker key={`${activeId}:${st?.sessionId ?? ''}`} projectId={activeId} provider={st?.harness} thinking={thinking} onBusy={setModelBusy} />}
 
       {/* Row 2: small actions */}
       <div className="shrink-0 flex items-center gap-4 mb-2">
@@ -461,7 +465,7 @@ const AgentPanel: React.FC = () => {
       )}
 
       {/* Composer (commit-area idiom) */}
-      <div className="shrink-0 border-t border-[#333639] pt-3 mt-1 flex flex-col gap-2">
+      {running && <div className="shrink-0 border-t border-[#333639] pt-3 mt-1 flex flex-col gap-2">
         <textarea
           ref={taRef}
           value={draft}
@@ -471,7 +475,7 @@ const AgentPanel: React.FC = () => {
           }}
           onKeyDown={onKeyDown}
           placeholder={running ? 'Ask the agent… (↑ history)' : 'Start a harness first'}
-          disabled={!running || thinking}
+          disabled={!running || thinking || modelBusy}
           rows={2}
           className="no-drag w-full resize-none bg-[#1e1f22] border border-[#333639] rounded-lg p-3 font-mono text-[13px] text-primary outline-none focus:ring-1 focus:ring-[var(--accent)] placeholder:text-dim disabled:opacity-40"
         />
@@ -484,7 +488,7 @@ const AgentPanel: React.FC = () => {
         <div className="flex items-center gap-2">
           <div className="relative flex-1 flex">
             <button
-              disabled={!draft.trim() || thinking || !running}
+              disabled={!draft.trim() || thinking || modelBusy || !running}
               onClick={doSend}
               className="no-drag flex-1 h-9 px-3 rounded-l-lg bg-[#3b5bfd] text-white font-medium disabled:opacity-40 disabled:cursor-not-allowed"
             >
@@ -499,7 +503,7 @@ const AgentPanel: React.FC = () => {
             </button>
           </div>
         </div>
-      </div>
+      </div>}
 
       {confirmDelete && (
         <ConfirmDialog
@@ -519,39 +523,6 @@ const AgentPanel: React.FC = () => {
           onCancel={() => setConfirmDelete(null)}
         />
       )}
-    </div>
-  )
-}
-
-const HarnessPicker: React.FC<{
-  harnesses: { name: string; available: boolean }[]
-  onStart: (name: string) => void
-}> = ({ harnesses, onStart }) => {
-  const [selected, setSelected] = useState('')
-  const options = harnesses.length ? harnesses : [{ name: 'opencode', available: true }]
-  const current = selected || options[0]?.name || ''
-  const currentInfo = options.find((h) => h.name === current)
-  return (
-    <div className="shrink-0 flex items-center gap-2">
-      <select
-        className="no-drag h-9 px-2 rounded-lg bg-[#242629] border border-[#333639] text-primary outline-none"
-        value={current}
-        onChange={(e) => setSelected(e.target.value)}
-      >
-        {options.map((h) => (
-          <option key={h.name} value={h.name} disabled={!h.available}>
-            {h.name}
-            {h.available ? '' : ' (not installed)'}
-          </option>
-        ))}
-      </select>
-      <button
-        className="no-drag h-9 px-3 rounded-lg bg-[var(--accent)] text-[#0b0c10] font-medium disabled:opacity-40 disabled:cursor-not-allowed"
-        disabled={!currentInfo?.available}
-        onClick={() => onStart(current)}
-      >
-        Start
-      </button>
     </div>
   )
 }

@@ -1,4 +1,5 @@
 import React from 'react'
+import { shortcut } from '../lib/platform'
 import { useProjects } from '../state/projects'
 import { useTabs } from '../state/tabs'
 import { useGit } from '../state/git'
@@ -99,14 +100,14 @@ const Titlebar: React.FC = () => {
       <div className="flex-1 flex justify-center px-3 min-w-0">
         <button
           className="no-drag h-[24px] w-full max-w-[520px] flex items-center gap-2 px-2.5 rounded-full bg-[#1e1f22] border border-[var(--bg-border)] text-dim hover:border-[#4a4d54] hover:text-[#9a9da3] transition-colors"
-          title="Search files, symbols & actions (⌘P)"
+          title={`Search files, symbols & actions (${shortcut('P')})`}
           aria-label="Open quick open"
           onClick={openQuickOpen}
         >
           <SearchIcon />
           <span className="truncate text-[11px]">Search files, symbols &amp; actions</span>
           <span className="ml-auto shrink-0 px-1.5 h-[16px] rounded bg-white/8 text-[10px] leading-[16px] text-[#9a9da3]">
-            ⌘P
+            {shortcut('P')}
           </span>
         </button>
       </div>

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/url"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 )
@@ -65,7 +66,16 @@ func toURI(path string) string {
 	if err != nil {
 		abs = path
 	}
+	abs = filepath.ToSlash(abs)
 	u := url.URL{Scheme: "file", Path: abs}
+	if runtime.GOOS == "windows" {
+		if strings.HasPrefix(abs, "//") {
+			host, path, _ := strings.Cut(strings.TrimPrefix(abs, "//"), "/")
+			u.Host, u.Path = host, "/"+path
+		} else {
+			u.Path = "/" + abs
+		}
+	}
 	return u.String()
 }
 
@@ -90,7 +100,15 @@ func fromURI(uri string) (string, error) {
 	if u.Path == "" && u.Host != "" && u.Host != "localhost" {
 		return "", fmt.Errorf("lsp: uri %q has no path", uri)
 	}
-	return u.Path, nil
+	path := u.Path
+	if runtime.GOOS == "windows" {
+		if u.Host != "" && !strings.EqualFold(u.Host, "localhost") {
+			path = "//" + u.Host + path
+		} else if len(path) >= 3 && path[0] == '/' && path[2] == ':' {
+			path = path[1:]
+		}
+	}
+	return filepath.FromSlash(path), nil
 }
 
 // message is the generic JSON-RPC envelope for marshaling.

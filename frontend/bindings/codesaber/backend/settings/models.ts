@@ -11,7 +11,7 @@ export interface Model {
     "minimap": boolean;
 
     /**
-     * "" = default ($SHELL or zsh)
+     * "" = platform default
      */
     "terminalShell": string;
 

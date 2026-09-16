@@ -3,7 +3,9 @@ package git
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
+	"time"
 
 	git2 "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/object"
@@ -12,6 +14,24 @@ import (
 func initRepo(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
+	if runtime.GOOS == "windows" {
+		// Windows can briefly retain deleted object entries. Retry only this
+		// test-owned directory before TempDir's final cleanup, with a hard bound.
+		t.Cleanup(func() {
+			deadline := time.Now().Add(2 * time.Second)
+			for {
+				err := os.RemoveAll(dir)
+				if err == nil {
+					return
+				}
+				if time.Now().After(deadline) {
+					t.Errorf("cleanup fixture: %v", err)
+					return
+				}
+				time.Sleep(20 * time.Millisecond)
+			}
+		})
+	}
 	r, err := git2.PlainInit(dir, false)
 	if err != nil {
 		t.Fatal(err)
@@ -149,6 +169,7 @@ func TestCommit(t *testing.T) {
 	if err := e.Stage([]string{"init.txt"}); err != nil {
 		t.Fatal(err)
 	}
+	before := time.Now().Truncate(time.Second)
 	if err := e.Commit("bump", "codesaber <codesaber@local>"); err != nil {
 		t.Fatalf("Commit: %v", err)
 	}
@@ -159,6 +180,17 @@ func TestCommit(t *testing.T) {
 	nodes, _ := e.Log(5)
 	if len(nodes) < 2 || nodes[0].Message != "bump" {
 		t.Fatalf("log: %+v", nodes)
+	}
+	head, err := e.r.Head()
+	if err != nil {
+		t.Fatal(err)
+	}
+	commit, err := e.r.CommitObject(head.Hash())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if commit.Author.When.Before(before) || commit.Author.When.After(time.Now()) {
+		t.Fatalf("persisted commit timestamp is not current: %v", commit.Author.When)
 	}
 }
 

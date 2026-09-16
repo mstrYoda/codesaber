@@ -14,9 +14,12 @@ const ClientInfo = `{"name":"codesaber","version":"0.1.0"}`
 // Session is one ACP conversation lifecycle: spawn -> initialize ->
 // session/new -> prompt turns with streamed updates.
 type Session struct {
-	conn    *Conn
-	harness Info
-	id      string
+	conn          *Conn
+	harness       Info
+	id            string
+	modelsMu      sync.RWMutex
+	models        ModelState
+	modelConfigID string
 
 	// OnUpdate receives decoded session/update notifications delivered while
 	// a prompt turn is open. Nil is allowed.
@@ -81,7 +84,12 @@ func initializeAndNew(ctx context.Context, conn *Conn, profile Info, root string
 	if id == "" {
 		return nil, fmt.Errorf("acp: session/new missing sessionId in %v", res)
 	}
-	return &Session{conn: conn, harness: profile, id: id}, nil
+	s := &Session{conn: conn, harness: profile, id: id}
+	s.readModels(m)
+	conn.observerMu.Lock()
+	conn.observeUpdate = s.observeModels
+	conn.observerMu.Unlock()
+	return s, nil
 }
 
 // startSessionOnConn is the test seam: drive the handshake on a pre-built conn.

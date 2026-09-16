@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Events } from '@wailsio/runtime'
+import { shortcut } from '../lib/platform'
 import Titlebar from '../components/Titlebar'
 import Sidebar from '../components/Sidebar'
 import EditorTabs from '../components/EditorTabs'
@@ -230,7 +231,7 @@ const ActivityRail: React.FC<{
     <div className="flex flex-col items-center gap-1.5 py-2 bg-panel w-11 shrink-0 border-r border-panel">
       <button
         className={railBtn(ui.sidebar)}
-        title="Files ⌘B"
+        title={`Files ${shortcut('B')}`}
         aria-label="Toggle files sidebar"
         onClick={() => onToggle('sidebar')}
       >
@@ -238,7 +239,7 @@ const ActivityRail: React.FC<{
       </button>
       <button
         className={railBtn(ui.rightDock && dockTab === 'search')}
-        title="Search ⌘⇧F"
+        title={`Search ${shortcut('Shift+F')}`}
         aria-label="Open search dock"
         onClick={() => openDockTab('search')}
       >
@@ -246,7 +247,7 @@ const ActivityRail: React.FC<{
       </button>
       <button
         className={railBtn(ui.rightDock && dockTab === 'git')}
-        title="Source Control ⌘D"
+        title={`Source Control ${shortcut('D')}`}
         aria-label="Toggle git dock"
         onClick={() => openDockTab('git')}
       >
@@ -259,7 +260,7 @@ const ActivityRail: React.FC<{
       </button>
       <button
         className={railBtn(ui.terminal)}
-        title="Terminal ⌘J"
+        title={`Terminal ${shortcut('J')}`}
         aria-label="Toggle terminal"
         onClick={() => onToggle('terminal')}
       >
@@ -403,7 +404,7 @@ const WorkspaceInner: React.FC = () => {
   return (
     <div className="flex flex-col h-full bg-editor text-primary">
       <Titlebar />
-      <div className="flex flex-1 min-h-0">
+      <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Activity rail */}
         <ActivityRail ui={ui} dockTab={dockTab} onToggle={toggle} />
         {/* Left sidebar */}
@@ -500,7 +501,7 @@ const WorkspaceInner: React.FC = () => {
             <button
               onClick={() => toggle('rightDock')}
               className="no-drag ml-auto mr-1 w-5 h-5 rounded flex items-center justify-center text-dim hover:text-primary hover:bg-[#373940]"
-              title="Collapse dock (⌘D)"
+              title={`Collapse dock (${shortcut('D')})`}
               aria-label="Collapse right dock"
             >
               {'\u00bb'}

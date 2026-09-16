@@ -66,7 +66,7 @@ interface InlineKBarState {
 
 // imageMime maps an image file extension to its data-URL MIME subtype.
 const imageMime = (path: string): string => {
-  const name = path.slice(path.lastIndexOf('/') + 1).toLowerCase()
+  const name = path.slice(Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\')) + 1).toLowerCase()
   if (name.endsWith('.jpg') || name.endsWith('.jpeg')) return 'jpeg'
   if (name.endsWith('.svg')) return 'svg+xml'
   const m = name.match(/\.(png|gif|webp|bmp)$/)
@@ -74,7 +74,7 @@ const imageMime = (path: string): string => {
 }
 
 const languageFor = (path: string): Extension => {
-  const name = path.slice(path.lastIndexOf('/') + 1).toLowerCase()
+  const name = path.slice(Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\')) + 1).toLowerCase()
   if (name.endsWith('.go')) return StreamLanguage.define(go)
   if (name.endsWith('.tsx')) return javascript({ typescript: true, jsx: true })
   if (name.endsWith('.jsx')) return javascript({ jsx: true })

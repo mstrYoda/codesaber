@@ -81,7 +81,7 @@ export const SymbolsProvider: React.FC<{ children: React.ReactNode }> = ({
             projectName: p.name,
             root: p.root,
             path,
-            rel: path.startsWith(p.root + '/')
+            rel: (path.startsWith(p.root + '/') || path.startsWith(p.root + '\\'))
               ? path.slice(p.root.length + 1)
               : path,
           })
