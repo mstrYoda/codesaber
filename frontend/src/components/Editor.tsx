@@ -34,6 +34,7 @@ import { javascript } from '@codemirror/lang-javascript'
 import { css } from '@codemirror/lang-css'
 import { html } from '@codemirror/lang-html'
 import { json } from '@codemirror/lang-json'
+import { php } from '@codemirror/lang-php'
 import { go } from '@codemirror/legacy-modes/mode/go'
 import { darkSyntax } from '../lib/syntaxTheme'
 import {
@@ -82,6 +83,7 @@ const languageFor = (path: string): Extension => {
   if (name.endsWith('.css')) return css()
   if (name.endsWith('.html') || name.endsWith('.htm')) return html()
   if (name.endsWith('.json')) return json()
+  if (name.endsWith('.php')) return php()
   return []
 }
 

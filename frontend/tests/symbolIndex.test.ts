@@ -20,6 +20,7 @@ beforeAll(() => {
     typescript: () => fs.readFile(path.join(wasmDir, 'tree-sitter-typescript.wasm')),
     tsx: () => fs.readFile(path.join(wasmDir, 'tree-sitter-tsx.wasm')),
     javascript: () => fs.readFile(path.join(wasmDir, 'tree-sitter-javascript.wasm')),
+    php: () => fs.readFile(path.join(wasmDir, 'tree-sitter-php.wasm')),
   })
 })
 
@@ -191,6 +192,77 @@ module.exports = { hi }
 `
     const syms = await extractSymbols('a.js', src)
     expect(names(syms)).toEqual(['function:hi', 'class:Foo', 'var:arrow'])
+  })
+})
+
+describe('PHP extraction', () => {
+  const src = `<?php
+
+const MAX = 10;
+
+function hi($name) {
+    return "hi $name";
+}
+
+class Router {
+    public $routes = [];
+
+    private const KIND = 'router';
+
+    public function add(string $r): void {}
+
+    public static function make(): Router {}
+}
+
+interface Handler {
+    public function handle();
+}
+
+trait CacheAware {
+    public function warm() {}
+}
+
+enum Status: string {
+    case Ok = 'ok';
+}
+`
+  ;[0, 1].forEach((useSync) => {
+    it('extracts functions, classes, methods, interfaces, traits, enums, consts', async () => {
+      let syms: Sym[]
+      if (useSync) {
+        await extractSymbols('warm.php', "<?php function Warm() {}")
+        syms = extractSymbolsSync('app.php', src)
+      } else {
+        syms = await extractSymbols('app.php', src)
+      }
+      expect(names(syms)).toEqual([
+        'var:MAX',
+        'function:hi',
+        'class:Router',
+        'var:routes',
+        'var:KIND',
+        'method:add',
+        'method:make',
+        'type:Handler',
+        'method:handle',
+        'type:CacheAware',
+        'method:warm',
+        'type:Status',
+      ])
+      expect(syms.find((s) => s.name === 'MAX')!.line).toBe(3)
+      expect(syms.find((s) => s.name === 'hi')!.line).toBe(5)
+      expect(syms.find((s) => s.name === 'Router')!.line).toBe(9)
+    })
+  })
+
+  it('tolerates syntax errors and extracts partial symbols', async () => {
+    const syms = await extractSymbols('broken.php', '<?php function Good() {}\nfunction bad( {')
+    expect(names(syms)).toContain('function:Good')
+  })
+
+  it('rejects non-php extensions', () => {
+    expect(supportedExt('a.php')).toBe(true)
+    expect(supportedExt('a.hh')).toBe(false)
   })
 })
 

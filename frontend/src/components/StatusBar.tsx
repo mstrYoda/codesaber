@@ -142,6 +142,7 @@ const extToLabel: Record<string, string> = {
   mjs: 'JavaScript',
   cjs: 'JavaScript',
   go: 'Go',
+  php: 'PHP',
   rs: 'Rust',
   py: 'Python',
   html: 'HTML',

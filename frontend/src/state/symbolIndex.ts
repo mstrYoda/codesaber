@@ -18,11 +18,11 @@ export const supportedExt = (path: string): boolean => {
   const dot = base.lastIndexOf('.')
   if (dot <= 0) return false
   const ext = base.slice(dot + 1)
-  return ['go', 'ts', 'tsx', 'js', 'jsx', 'mjs', 'cjs'].includes(ext)
+  return ['go', 'ts', 'tsx', 'js', 'jsx', 'mjs', 'cjs', 'php'].includes(ext)
 }
 
 // TS/TSX/JS grammars share the same node shapes; pick per extension.
-type LangName = 'go' | 'typescript' | 'tsx' | 'javascript'
+type LangName = 'go' | 'typescript' | 'tsx' | 'javascript' | 'php'
 const langForPath = (path: string): LangName => {
   const base = path.slice(path.lastIndexOf('/') + 1)
   const dot = base.lastIndexOf('.')
@@ -30,6 +30,7 @@ const langForPath = (path: string): LangName => {
   if (ext === 'go') return 'go'
   if (ext === 'ts' || ext === 'mts' || ext === 'cts') return 'typescript'
   if (ext === 'tsx') return 'tsx'
+  if (ext === 'php') return 'php'
   return 'javascript'
 }
 
@@ -42,6 +43,7 @@ const defaultSources: Record<LangName, GrammarSource> = {
   typescript: async () => (await import('tree-sitter-wasms/out/tree-sitter-typescript.wasm?url')).default,
   tsx: async () => (await import('tree-sitter-wasms/out/tree-sitter-tsx.wasm?url')).default,
   javascript: async () => (await import('tree-sitter-wasms/out/tree-sitter-javascript.wasm?url')).default,
+  php: async () => (await import('tree-sitter-wasms/out/tree-sitter-php.wasm?url')).default,
 }
 let sources: Record<LangName, GrammarSource> | null = null
 export const configureGrammars = (s: Partial<Record<LangName, GrammarSource>>): void => {
@@ -57,7 +59,7 @@ const initParser = (): Promise<boolean> => {
       try {
         await Parser.init()
         const src = sources ?? defaultSources
-        for (const name of ['go', 'typescript', 'tsx', 'javascript'] as LangName[]) {
+        for (const name of ['go', 'typescript', 'tsx', 'javascript', 'php'] as LangName[]) {
           langs.set(name, await Language.load(await src[name]()))
         }
         return true
@@ -213,6 +215,82 @@ const extractTs = (tree: Tree, text: string): Sym[] => {
   return out
 }
 
+// PHP: functions, classes, methods, interfaces/traits/enums as type,
+// top-level const/property declarations as var.
+const extractPhp = (tree: Tree, text: string): Sym[] => {
+  const out: Sym[] = []
+  const lineStarts: number[] = [0]
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === '\n') lineStarts.push(i + 1)
+  }
+  const pos = (node: Node) => {
+    const idx = node.startIndex
+    let lo = 0
+    let hi = lineStarts.length - 1
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1
+      if (lineStarts[mid] <= idx) lo = mid
+      else hi = mid - 1
+    }
+    return { line: lo + 1, col: idx - lineStarts[lo] + 1 }
+  }
+  const add = (node: Node, kind: SymKind, name: string) => {
+    const { line, col } = pos(node)
+    out.push({ name, kind, line, col })
+  }
+  const memberNameChild = (body: Node | null, types: string[]): Node | null => {
+    if (!body) return null
+    for (let i = 0; i < body.childCount; i++) {
+      const c = body.child(i)
+      if (c && types.includes(c.type)) return c
+    }
+    return null
+  }
+  const visit = (n: Node) => {
+    switch (n.type) {
+      case 'function_definition': {
+        const nameNode = n.childForFieldName('name')
+        if (nameNode) add(nameNode, 'function', nameNode.text)
+        break
+      }
+      case 'class_declaration': {
+        const nameNode = n.childForFieldName('name')
+        if (nameNode) add(nameNode, 'class', nameNode.text)
+        break
+      }
+      case 'interface_declaration':
+      case 'trait_declaration':
+      case 'enum_declaration': {
+        const nameNode = n.childForFieldName('name')
+        if (nameNode) add(nameNode, 'type', nameNode.text)
+        break
+      }
+      case 'method_declaration': {
+        const nameNode = n.childForFieldName('name')
+        if (nameNode) add(nameNode, 'method', nameNode.text)
+        break
+      }
+      case 'const_element': {
+        const names = memberNameChild(n, ['name'])
+        if (names) add(names, 'var', names.text)
+        break
+      }
+      case 'property_element': {
+        const vn = memberNameChild(n, ['variable_name'])
+        const names = vn ? memberNameChild(vn, ['name']) : null
+        if (names) add(names, 'var', names.text)
+        break
+      }
+    }
+    for (let i = 0; i < n.childCount; i++) {
+      const c = n.child(i)
+      if (c) visit(c)
+    }
+  }
+  visit(tree.rootNode)
+  return out
+}
+
 export const extractSymbolsSync = (path: string, text: string): Sym[] => {
   if (!parser) return []
   const lang = langs.get(langForPath(path))
@@ -225,7 +303,10 @@ export const extractSymbolsSync = (path: string, text: string): Sym[] => {
     return []
   }
   if (!tree) return []
-  const syms = path.endsWith('.go') ? extractGo(tree, text) : extractTs(tree, text)
+  let syms: Sym[]
+  if (path.endsWith('.go')) syms = extractGo(tree, text)
+  else if (path.endsWith('.php')) syms = extractPhp(tree, text)
+  else syms = extractTs(tree, text)
   tree.delete()
   return syms
 }

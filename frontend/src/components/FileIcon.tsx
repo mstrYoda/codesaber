@@ -15,6 +15,7 @@ const CHIPS: Record<string, { label: string; bg: string; fg: string }> = {
   mjs: { label: 'JS', bg: '#f7df1e', fg: '#000000' },
   cjs: { label: 'JS', bg: '#f7df1e', fg: '#000000' },
   go: { label: 'GO', bg: '#00ADD8', fg: '#000000' },
+  php: { label: 'PHP', bg: '#a071c9', fg: '#ffffff' },
   rs: { label: 'RS', bg: '#dea584', fg: '#000000' },
   py: { label: 'PY', bg: '#3572A5', fg: '#ffffff' },
   html: { label: 'HT', bg: '#e34c26', fg: '#ffffff' },
