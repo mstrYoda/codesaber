@@ -8,6 +8,7 @@ import React, {
 import { useProjects } from '../state/projects'
 import { useTabs } from '../state/tabs'
 import { useSymbols, type SymHit } from '../state/symbols'
+import { useKeyboardShortcut } from '../state/keybinding'
 import * as App from '../../bindings/codesaber/backend/app'
 
 interface FileItem {
@@ -98,20 +99,20 @@ const QuickOpen: React.FC = () => {
   // Mod-P opens the file finder, Mod-T the symbol finder. The command
   // palette takes priority: when it is on screen both are ignored so the
   // overlays never stack.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && !e.shiftKey) {
-        const k = e.key.toLowerCase()
-        if (k === 'p' || k === 't') {
-          e.preventDefault()
-          if (document.querySelector('[data-command-palette]')) return
-          open(k === 'p' ? 'files' : 'symbols')
-        }
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [open])
+  const noCommandPalette = useCallback(
+    () => !document.querySelector('[data-command-palette]'),
+    [],
+  )
+  useKeyboardShortcut(
+    'quickOpenFiles',
+    useCallback(() => open('files'), [open]),
+    noCommandPalette,
+  )
+  useKeyboardShortcut(
+    'quickOpenSymbols',
+    useCallback(() => open('symbols'), [open]),
+    noCommandPalette,
+  )
 
   // 'codesaber:quickopen' (activity rail) opens the palette too. Same priority
   // rule as Mod-P: never stack on top of the command palette.

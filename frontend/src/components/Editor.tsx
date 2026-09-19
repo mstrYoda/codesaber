@@ -47,6 +47,7 @@ import { vimExtension, setVimSaveHandler } from '../lib/vim'
 import { Events } from '@wailsio/runtime'
 import { useProjects } from '../state/projects'
 import { useTabs, type Tab } from '../state/tabs'
+import { useKeyboardShortcut } from '../state/keybinding'
 import DiffViewer from './DiffViewer'
 import MdPreview from './MdPreview'
 import * as App from '../../bindings/codesaber/backend/app'
@@ -678,19 +679,16 @@ const TabEditor: React.FC<{
   // inside it just closes.
   useEffect(() => {
     if (!active) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'k' || !(e.metaKey || e.ctrlKey)) return
-      e.preventDefault()
-      openInlineK()
-    }
     const onMenu = () => openInlineK()
-    window.addEventListener('keydown', onKey)
     window.addEventListener('codesaber:ai-edit', onMenu)
-    return () => {
-      window.removeEventListener('keydown', onKey)
-      window.removeEventListener('codesaber:ai-edit', onMenu)
-    }
+    return () => window.removeEventListener('codesaber:ai-edit', onMenu)
   }, [active, openInlineK])
+
+  useKeyboardShortcut(
+    'inlineEdit',
+    openInlineK,
+    useCallback(() => active, [active]),
+  )
 
   useEffect(() => {
     if (!hostRef.current) return

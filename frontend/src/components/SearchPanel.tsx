@@ -216,7 +216,7 @@ const SearchPanel: React.FC = () => {
           />
           {running && (
             <span
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full border-2 border-[#4a4f55] border-t-[var(--accent)] animate-spin"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full border-2 border-[#4a4f55] border-t-(--accent) animate-spin"
               aria-label="Searching"
             />
           )}
@@ -225,7 +225,7 @@ const SearchPanel: React.FC = () => {
           className={
             'no-drag h-9 px-2.5 rounded-lg border font-mono shrink-0 ' +
             (regex
-              ? 'border-[var(--accent)] text-primary bg-white/10'
+              ? 'border-(--accent) text-primary bg-white/10'
               : 'border-[#333639] bg-[#242629] text-dim hover:text-primary hover:border-[#4a4f55]')
           }
           title="Regular expression"
@@ -243,7 +243,7 @@ const SearchPanel: React.FC = () => {
           className={
             'no-drag h-7 w-8 rounded-lg border font-mono text-[11px] shrink-0 ' +
             (caseSensitive
-              ? 'border-[var(--accent)] text-primary bg-white/10'
+              ? 'border-(--accent) text-primary bg-white/10'
               : 'border-[#333639] bg-[#242629] text-dim hover:text-primary hover:border-[#4a4f55]')
           }
           title="Match case"

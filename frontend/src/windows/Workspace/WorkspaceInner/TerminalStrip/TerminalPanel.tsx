@@ -3,16 +3,16 @@ import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { Events } from '@wailsio/runtime'
-import * as App from '../../bindings/codesaber/backend/app'
-import { b64ToBytes, bytesToB64 } from '../state/terminal'
 import '@xterm/xterm/css/xterm.css'
+import { App } from '../../../../../bindings/codesaber/backend';
+import { b64ToBytes, bytesToB64 } from '../../../../state/terminal';
 
-interface TerminalPanelProps {
+interface Props {
   termId: string
   visible: boolean
 }
 
-const TerminalPanel: React.FC<TerminalPanelProps> = ({ termId, visible }) => {
+const TerminalPanel: React.FC<Props> = ({ termId, visible }) => {
   const containerRef = useRef<HTMLDivElement>(null)
   // doFit lives in a ref so the visibility effect below can trigger a refit
   // when the tab becomes active without recreating the xterm instance.

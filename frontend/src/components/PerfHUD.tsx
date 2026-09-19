@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import * as App from '../../bindings/codesaber/backend/app'
 import { Health } from '../../bindings/codesaber/backend/models'
-import { onSettingsChange, perfHudEnabled } from '../lib/settings'
+import { onSettingsChange, perfHudEnabled, togglePerfHud } from '../lib/settings'
+import { useKeyboardShortcut } from '../state/keybinding'
 
 const Row: React.FC<{ label: string; value: string }> = ({ label, value }) => (
   <div className="flex justify-between gap-6">
@@ -22,6 +23,8 @@ const PerfHUD: React.FC = () => {
   const [sample, setSample] = useState<Sample | null>(null)
 
   useEffect(() => onSettingsChange(() => setEnabled(perfHudEnabled())), [])
+
+  useKeyboardShortcut('perfHud', () => togglePerfHud())
 
   useEffect(() => {
     if (!enabled) return

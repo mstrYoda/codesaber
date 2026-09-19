@@ -8,6 +8,7 @@ import React, {
 import { useProjects } from '../state/projects'
 import { APP_VERSION } from '../version'
 import { useSettings } from '../lib/settings'
+import { useKeyboardShortcut } from '../state/keybinding'
 
 interface Command {
   id: string
@@ -45,24 +46,20 @@ const CommandPalette: React.FC = () => {
     setConfirmingId(null)
   }, [])
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'p') {
-        e.preventDefault()
-        setOpenState((prev) => {
-          if (prev) {
-            setQuery('')
-            setSelected(0)
-            setConfirmingId(null)
-            return false
-          }
-          return true
-        })
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [])
+  useKeyboardShortcut(
+    'commandPalette',
+    useCallback(() => {
+      setOpenState((prev) => {
+        if (prev) {
+          setQuery('')
+          setSelected(0)
+          setConfirmingId(null)
+          return false
+        }
+        return true
+      })
+    }, []),
+  )
 
   useEffect(() => {
     if (openState) inputRef.current?.focus()

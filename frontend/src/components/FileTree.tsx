@@ -258,28 +258,6 @@ const FileTree: React.FC<{ root: string; projectId: string }> = ({
     }
   }, [ctxMenu])
 
-  // ⌘V anywhere in the tree pastes into the active project root.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (!e.metaKey && !e.ctrlKey) return
-      if (e.key.toLowerCase() !== 'v') return
-      // Inputs/textareas own ⌘V for text pasting.
-      const el = document.activeElement
-      if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)
-        return
-      e.preventDefault()
-      App.PasteboardRead()
-        .then((items) => {
-          if (items?.length)
-            doPaste({ x: 0, y: 0, path: null, dir: true, pasteItems: items })
-        })
-        .catch(() => {})
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [root])
-
   const openCtxMenu = (
     e: React.MouseEvent,
     path: string | null,
