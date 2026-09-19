@@ -35,6 +35,11 @@ jobs:
           llm_auth_token: ${{ secrets.OCR_LLM_AUTH_TOKEN }}
           llm_model: glm-5.3-flash
           llm_use_anthropic: "false"
+          # OpenCode Go requires a session header for routing/prompt caching
+          # (https://opencode.ai/docs/go/#where-can-i-use-it)
+          llm_extra_headers: >-
+            {"x-opencode-session": "codesaber-ai-review-${{ github.event.pull_request.number }}",
+             "User-Agent": "open-code-review/1.0"}
           background: >-
             CodeSaber is a lightweight, modular-monolith Wails v3 desktop IDE:
             Go backend (editor, git, terminal, LSP, ACP agents) + React 18 /
