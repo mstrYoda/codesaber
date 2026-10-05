@@ -149,7 +149,7 @@ const DiffViewer: React.FC<{
 
   const dirs = useMemo(() => {
     const p = parsed?.path ?? ''
-    const parts = p.split('/')
+    const parts = p.split(/[\\/]/)
     return {
       name: parts[parts.length - 1],
       dir: parts.slice(0, parts.length - 1),

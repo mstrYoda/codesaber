@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import FileTree from './FileTree'
+import { shortcut } from '../lib/platform'
 import { useProjects } from '../state/projects'
 import { useLayout } from '../state/layout'
 
@@ -65,7 +66,7 @@ const Sidebar: React.FC = () => {
       <button
         onClick={() => toggle('sidebar')}
         className="no-drag absolute top-1.5 right-1 z-10 w-5 h-5 rounded flex items-center justify-center text-dim hover:text-primary hover:bg-[#373940]"
-        title="Collapse sidebar (⌘B)"
+        title={`Collapse sidebar (${shortcut('B')})`}
         aria-label="Collapse sidebar"
       >
         {'\u2039'}

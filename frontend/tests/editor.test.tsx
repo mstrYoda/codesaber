@@ -60,6 +60,7 @@ vi.mock('../src/lsp', () => ({
 }))
 
 import { TabsProvider, useTabs } from '../src/state/tabs'
+import { KeyboardShortcutsProvider } from '../src/state/keybinding'
 import Editor from '../src/components/Editor'
 
 let root: Root
@@ -70,10 +71,12 @@ const Probe = () => {
 }
 const workspace = () => (
   <React.StrictMode>
-    <TabsProvider>
-      <Probe />
-      <Editor />
-    </TabsProvider>
+    <KeyboardShortcutsProvider>
+      <TabsProvider>
+        <Probe />
+        <Editor />
+      </TabsProvider>
+    </KeyboardShortcutsProvider>
   </React.StrictMode>
 )
 const view = () => {

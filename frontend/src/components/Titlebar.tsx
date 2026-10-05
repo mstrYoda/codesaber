@@ -1,4 +1,5 @@
 import React from 'react'
+import { shortcut } from '../lib/platform'
 import { Window } from '@wailsio/runtime'
 import { useProjects } from '../state/projects'
 import { useTabs } from '../state/tabs'
@@ -112,14 +113,14 @@ const Titlebar: React.FC = () => {
       <div className="flex-1 flex justify-center px-3 min-w-0">
         <button
           className="no-drag h-6 w-full max-w-130 flex items-center gap-2 px-2.5 rounded-full bg-[#1e1f22] border border-(--bg-border) text-dim hover:border-[#4a4d54] hover:text-[#9a9da3] transition-colors"
-          title="Search files, symbols & actions (⌘P)"
+          title={`Search files, symbols & actions (${shortcut('P')})`}
           aria-label="Open quick open"
           onClick={openQuickOpen}
         >
           <SearchIcon />
           <span className="truncate text-[11px]">Search files, symbols &amp; actions</span>
           <span className="ml-auto shrink-0 px-1.5 h-4 rounded bg-white/8 text-[10px] leading-4 text-[#9a9da3]">
-            ⌘P
+            {shortcut('P')}
           </span>
         </button>
       </div>

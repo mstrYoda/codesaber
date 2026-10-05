@@ -3,7 +3,6 @@ package lsp
 import (
 	"context"
 	"fmt"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -33,8 +32,8 @@ func goplsBinaryPath() (string, error) {
 	if out, gerr := exec.Command("go", "env", "GOPATH").Output(); gerr == nil {
 		cand := filepath.Join(strings.TrimSpace(string(out)), "bin", defaultBinaryPath)
 		if abs, aerr := filepath.Abs(cand); aerr == nil {
-			if _, serr := os.Stat(abs); serr == nil {
-				return abs, nil
+			if resolved, serr := exec.LookPath(abs); serr == nil {
+				return resolved, nil
 			}
 		}
 	}

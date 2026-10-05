@@ -20,8 +20,8 @@ const Breadcrumbs: React.FC = () => {
   let rel = realPath
   const root = project?.root
   if (root && rel.startsWith(root)) rel = rel.slice(root.length)
-  rel = rel.replace(/^\//, '')
-  const segs = rel.split('/').filter(Boolean)
+  rel = rel.replace(/^[\\/]/, '')
+  const segs = rel.split(/[\\/]/).filter(Boolean)
   if (!segs.length) return null
 
   const parts = project ? [project.name, ...segs] : [...segs]

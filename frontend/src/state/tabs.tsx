@@ -49,7 +49,7 @@ interface TabsContextValue {
 
 const TabsContext = createContext<TabsContextValue | null>(null)
 
-const titleOf = (path: string) => path.slice(path.lastIndexOf('/') + 1) || path
+const titleOf = (path: string) => path.slice(Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\')) + 1) || path
 
 // isImagePath reports whether a path looks like a raster image the app can
 // preview inline (PNG/JPG/JPEG/GIF/WebP/BMP/SVG).

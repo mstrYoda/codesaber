@@ -169,7 +169,12 @@ func TestACPStartUnknownHarness(t *testing.T) {
 func TestACPStartUnavailableHarness(t *testing.T) {
 	app, _, pid := newAgentTestApp(t)
 	installFakeAgent(t, &fakePrompter{})
-	t.Setenv("PATH", t.TempDir())
+	t.Setenv("CODESABER_AGENT_HOME", t.TempDir())
+	emptyBin := t.TempDir()
+	t.Setenv("PATH", emptyBin)
+	t.Setenv("APPDATA", emptyBin)
+	t.Setenv("USERPROFILE", emptyBin)
+	t.Setenv("ProgramFiles", emptyBin)
 	if err := app.ACPStart(pid, "opencode"); err == nil || !strings.Contains(err.Error(), "not found on PATH") {
 		t.Fatalf("ACPStart = %v, want unavailable harness error", err)
 	}

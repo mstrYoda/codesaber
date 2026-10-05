@@ -9,6 +9,7 @@ import React, {
 import { Events } from '@wailsio/runtime'
 import * as App from '../../bindings/codesaber/backend/app'
 import { getSettings } from '../lib/settings'
+import { terminalLabel } from '../lib/platform'
 import { useProjects } from './projects'
 
 export interface TerminalTab {
@@ -68,10 +69,11 @@ export const TerminalProvider: React.FC<{ children: React.ReactNode }> = ({
     if (!projectId) return
     const n = ++seqRef.current
     const suffix = `${n}-${crypto.randomUUID()}`
+    const shell = getSettings().terminalShell
     try {
       const termId = await App.TermStart(
         projectId,
-        getSettings().terminalShell,
+        shell,
         suffix,
       )
       setTerminalsByProject((prev) => {
@@ -80,7 +82,7 @@ export const TerminalProvider: React.FC<{ children: React.ReactNode }> = ({
         return {
           ...prev,
           [projectId]: {
-            open: [...st.open, { termId, label: `sh ${n}` }],
+            open: [...st.open, { termId, label: terminalLabel(shell, n) }],
             active: termId,
           },
         }

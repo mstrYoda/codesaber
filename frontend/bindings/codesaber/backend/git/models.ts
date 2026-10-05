@@ -41,6 +41,7 @@ export interface LogEntry {
 
 export interface Status {
     "branch": string;
+    "head": string;
     "staged": Change[] | null;
     "unstaged": Change[] | null;
     "untracked": Change[] | null;

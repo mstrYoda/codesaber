@@ -69,6 +69,7 @@ func (e *Engine) Status() (Status, error) {
 	st := Status{Branch: "(none)", Staged: []Change{}, Unstaged: []Change{}, Untracked: []Change{}}
 	if head, err := e.r.Head(); err == nil {
 		st.Branch = head.Name().Short()
+		st.Head = head.Hash().String()
 	}
 	files, err := e.wt.Status()
 	if err != nil {
@@ -119,7 +120,7 @@ func (e *Engine) Unstage(paths []string) error {
 func parseAuthor(author string) *object.Signature {
 	name, email, _ := strings.Cut(author, "<")
 	email = strings.TrimSuffix(strings.TrimSpace(email), ">")
-	return &object.Signature{Name: strings.TrimSpace(name), Email: email}
+	return &object.Signature{Name: strings.TrimSpace(name), Email: email, When: time.Now()}
 }
 
 func indexMatchesHead(e *Engine) (bool, error) {

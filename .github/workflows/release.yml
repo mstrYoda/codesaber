@@ -1,7 +1,7 @@
 name: release
 
 # Tag-driven release pipeline:
-#   build    -> platform/arch matrix producing DMG / AppImage / deb / rpm / tarball
+#   build    -> platform/arch matrix producing DMG / AppImage / deb / rpm / tarball / Windows zip
 #   release  -> aggregate artifacts into one GitHub Release
 #   homebrew -> render + push the cask to mstrYoda/homebrew-codesaber
 on:
@@ -37,6 +37,9 @@ jobs:
           - os: ubuntu-24.04-arm
             goos: linux
             goarch: arm64
+          - os: windows-latest
+            goos: windows
+            goarch: amd64
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -121,6 +124,15 @@ jobs:
           tar -czf "CodeSaber-${VER}-linux-${{ matrix.goarch }}.tar.gz" -C bin codesaber
           ls -la bin
 
+      - name: Package (windows)
+        if: matrix.goos == 'windows'
+        shell: pwsh
+        run: |
+          wails3 task windows:build ARCH=${{ matrix.goarch }}
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $version = $env:GITHUB_REF_NAME -replace '^v', ''
+          Compress-Archive -LiteralPath bin/codesaber.exe -DestinationPath "CodeSaber-$version-windows-${{ matrix.goarch }}.zip"
+
       - uses: actions/upload-artifact@v4
         with:
           name: release-${{ matrix.goos }}-${{ matrix.goarch }}
@@ -131,6 +143,7 @@ jobs:
             bin/*.deb
             bin/*.rpm
             CodeSaber-*-linux-*.tar.gz
+            CodeSaber-*-windows-*.zip
           # AppImage is only built on amd64; arm64 jobs still ship deb/rpm/tarball
           if-no-files-found: error
 

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Events } from '@wailsio/runtime'
+import { shortcut } from '../lib/platform'
 import * as App from '../../bindings/codesaber/backend/app'
 import { useLayout } from '../state/layout'
 import { useProjects } from '../state/projects'
@@ -303,10 +304,10 @@ const StatusBar: React.FC = () => {
         <button
           onClick={() => toggle('terminal')}
           className="no-drag w-5 h-4 rounded flex items-center justify-center text-dim hover:text-primary hover:bg-[#373940]"
-          title={ui.terminal ? 'Hide terminal (⌘J)' : 'Show terminal (⌘J)'}
+          title={`${ui.terminal ? 'Hide' : 'Show'} terminal (${shortcut('J')})`}
           aria-label="Toggle terminal panel"
         >
-          {'\u2325'}
+          {'>_'}
         </button>
       </div>
     </div>

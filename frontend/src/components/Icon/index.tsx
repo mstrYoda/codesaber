@@ -14,7 +14,7 @@ function Icon({ name, iconProps }: IconProps) {
   const icon = iconNames.find((icon) => icon.name === name)
 
   return icon ? <icon.component {...iconProps} /> : null
-  
+
 }
 
-export default Icon 
+export default Icon

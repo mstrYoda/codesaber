@@ -3,6 +3,7 @@ import { useGit } from "../../../state/git";
 import { LayoutUI } from "../../../state/layout";
 import { useProjects } from "../../../state/projects";
 import { railBtn } from "../utils";
+import { shortcut } from '../../../lib/platform'
 
 
 
@@ -56,7 +57,7 @@ const ActivityRail: React.FC<Props> = ({ ui, dockTab, onToggle }) => {
     <div className="flex flex-col items-center gap-1.5 py-2 bg-panel w-11 shrink-0 border-r border-panel">
       <button
         className={railBtn(ui.sidebar)}
-        title="Files ⌘B"
+        title={`Files ${shortcut('B')}`}
         aria-label="Toggle files sidebar"
         onClick={() => onToggle('sidebar')}
       >
@@ -64,7 +65,7 @@ const ActivityRail: React.FC<Props> = ({ ui, dockTab, onToggle }) => {
       </button>
       <button
         className={railBtn(ui.rightDock && dockTab === 'search')}
-        title="Search ⌘⇧F"
+        title={`Search ${shortcut('Shift+F')}`}
         aria-label="Open search dock"
         onClick={() => openDockTab('search')}
       >
@@ -72,7 +73,7 @@ const ActivityRail: React.FC<Props> = ({ ui, dockTab, onToggle }) => {
       </button>
       <button
         className={railBtn(ui.rightDock && dockTab === 'git')}
-        title="Source Control ⌘D"
+        title={`Source Control ${shortcut('D')}`}
         aria-label="Toggle git dock"
         onClick={() => openDockTab('git')}
       >
@@ -85,7 +86,7 @@ const ActivityRail: React.FC<Props> = ({ ui, dockTab, onToggle }) => {
       </button>
       <button
         className={railBtn(ui.terminal)}
-        title="Terminal ⌘J"
+        title={`Terminal ${shortcut('J')}`}
         aria-label="Toggle terminal"
         onClick={() => onToggle('terminal')}
       >

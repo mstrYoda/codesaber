@@ -23,6 +23,7 @@ import QuickOpen from "../../../components/QuickOpen";
 import CommandPalette from "../../../components/CommandPalette";
 import PerfHUD from "../../../components/PerfHUD";
 import TerminalStrip from "./TerminalStrip";
+import { shortcut } from '../../../lib/platform'
 
 const WorkspaceInner: React.FC = () => {
   const { ui, toggle, setSize } = useLayout()
@@ -37,7 +38,7 @@ const WorkspaceInner: React.FC = () => {
     ? (st.staged?.length ?? 0) +
       (st.unstaged?.length ?? 0) +
       (st.untracked?.length ?? 0)
-    : 0     
+    : 0
 
   // Rail → dock tab coordination: the rail can force the dock onto a tab
   // (search / git badge click) without lifting tab state into the layout
@@ -120,7 +121,7 @@ const WorkspaceInner: React.FC = () => {
   return (
     <div className="flex flex-col h-full bg-editor text-primary">
       <Titlebar />
-      <div className="flex flex-1 min-h-0">
+      <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Activity rail */}
         <ActivityRail ui={ui} dockTab={dockTab} onToggle={toggle} />
         {/* Left sidebar */}
@@ -217,7 +218,7 @@ const WorkspaceInner: React.FC = () => {
             <button
               onClick={() => toggle('rightDock')}
               className="no-drag ml-auto mr-1 w-5 h-5 rounded flex items-center justify-center text-dim hover:text-primary hover:bg-[#373940]"
-              title="Collapse dock (⌘D)"
+              title={`Collapse dock (${shortcut('D')})`}
               aria-label="Collapse right dock"
             >
               {'\u00bb'}

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -15,9 +14,9 @@ import (
 // reference (dataB64 empty, Source set) or inline image data (screenshots;
 // Source empty, dataB64 holds the PNG bytes).
 type PasteItem struct {
-	Name   string `json:"name"`
-	IsDir  bool   `json:"isDir"`
-	Source string `json:"source"`
+	Name    string `json:"name"`
+	IsDir   bool   `json:"isDir"`
+	Source  string `json:"source"`
 	DataB64 string `json:"dataB64,omitempty"`
 }
 
@@ -56,12 +55,9 @@ FileHandle.standardOutput.write(try! d.encode(items))`
 // files/folders (Source = absolute path) or a screenshot image (DataB64 =
 // PNG). An empty result means nothing pasteable is on the pasteboard.
 func (a *App) PasteboardRead() ([]PasteItem, error) {
-	cmd := exec.Command("swift", "-e", swiftPasteboardReader)
-	var stderr strings.Builder
-	cmd.Stderr = &stderr
-	out, err := cmd.Output()
+	out, err := readSystemPasteboard()
 	if err != nil {
-		return nil, fmt.Errorf("pasteboard read: %w: %s", err, strings.TrimSpace(stderr.String()))
+		return nil, err
 	}
 	var items []PasteItem
 	if err := json.Unmarshal(out, &items); err != nil {

@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -426,7 +428,8 @@ func TestShutdownExitSequenceOnClose(t *testing.T) {
 }
 
 func TestURIHelpers(t *testing.T) {
-	uri := toURI("/tmp/a dir/gün.go")
+	original := filepath.Join(t.TempDir(), "a dir", "gün.go")
+	uri := toURI(original)
 	if !hasPrefix(uri, "file:///") {
 		t.Errorf("toURI = %q, want file:/// scheme", uri)
 	}
@@ -434,11 +437,12 @@ func TestURIHelpers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("fromURI: %v", err)
 	}
-	if back != "/tmp/a dir/gün.go" {
+	if back != original {
 		t.Errorf("fromURI round-trip = %q", back)
 	}
+	expected, _ := filepath.Abs("/w/main.go")
 	p, err := fromURI(toURI("/w/main.go"))
-	if err != nil || p != "/w/main.go" {
+	if err != nil || p != expected {
 		t.Errorf("fromURI = %q err %v, want /w/main.go", p, err)
 	}
 	if _, err := fromURI("http://web/ex"); err != nil || p == "" {
@@ -451,4 +455,27 @@ func hasPrefix(s, p string) bool { return len(s) >= len(p) && s[:len(p)] == p }
 func mustMarshal(v any) []byte {
 	b, _ := json.Marshal(v)
 	return b
+}
+
+func TestWindowsURIPaths(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows path semantics")
+	}
+	cases := []struct{ path, uri string }{
+		{`C:\Users\dev\a dir\gün.go`, "file:///C:/Users/dev/a%20dir/g%C3%BCn.go"},
+		{`\\server\share\a dir\main.go`, "file://server/share/a%20dir/main.go"},
+	}
+	for _, tc := range cases {
+		if got := toURI(tc.path); got != tc.uri {
+			t.Errorf("toURI(%q) = %q, want %q", tc.path, got, tc.uri)
+		}
+		got, err := fromURI(tc.uri)
+		if err != nil || got != tc.path {
+			t.Errorf("fromURI(%q) = %q, %v", tc.uri, got, err)
+		}
+	}
+	got, err := fromURI("file://localhost/C:/Users/dev/main.go")
+	if err != nil || got != `C:\Users\dev\main.go` {
+		t.Fatalf("localhost URI = %q, %v", got, err)
+	}
 }

@@ -14,7 +14,7 @@ import (
 func buildFakeLSP(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
-	bin := filepath.Join(dir, "lspfake")
+	bin := filepath.Join(dir, "lspfake.exe")
 	cmd := exec.Command("go", "build", "-o", bin, "./testdata/lspfake")
 	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
 	out, err := cmd.CombinedOutput()

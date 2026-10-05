@@ -427,7 +427,9 @@ func (a *App) acpSpawnOnAgent(projectID string, ag *agentSession, profile acp.In
 	ag.harness = profile
 	ag.mu.Unlock()
 
-	s, err := acpStartSession(context.Background(), root, profile, acp.ClientHandlers{
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	s, err := acpStartSession(ctx, root, profile, acp.ClientHandlers{
 		ReadTextFile: func(_, path string) (string, error) {
 			p, cerr := containedPath(root, path)
 			if cerr != nil {
@@ -490,7 +492,7 @@ func (a *App) acpSpawnOnAgent(projectID string, ag *agentSession, profile acp.In
 	if err != nil {
 		ag.setSession(nil)
 		a.emitState(projectID, AgentStateHarnessDown)
-		return err
+		return acp.ExplainStartError(err)
 	}
 	s.SetOnUpdate(a.acpUpdateHandler(projectID, ag))
 	ag.setSession(s)

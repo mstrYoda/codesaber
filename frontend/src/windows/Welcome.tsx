@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react'
 import * as App from '../../bindings/codesaber/backend/app'
 import type { Recent } from '../../bindings/codesaber/backend/project/models'
 
-const nameOf = (root: string) => root.slice(root.lastIndexOf('/') + 1) || root
+const nameOf = (root: string) => root.slice(Math.max(root.lastIndexOf('/'), root.lastIndexOf('\\')) + 1) || root
 
 const timeAgo = (iso: string): string => {
   const t = new Date(iso).getTime()
@@ -18,7 +18,7 @@ const timeAgo = (iso: string): string => {
 }
 
 // Flow shared by Open Folder… and recents entries: open the project in the
-// backend (emits project.added), bring up the workspace window, hide welcome.
+// backend (emits project.added), bring up the workspace window, close welcome.
 const openRoot = async (root: string) => {
   await App.OpenProject(root)
   await App.EnsureWorkspaceWindow()

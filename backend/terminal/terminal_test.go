@@ -2,6 +2,8 @@ package terminal
 
 import (
 	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -13,11 +15,14 @@ func testOpts(t *testing.T) SessionOpts {
 	return SessionOpts{
 		ID:    "test-session",
 		Cwd:   dir,
-		Shell: "/bin/sh",
+		Shell: defaultShell(),
 	}
 }
 
 func hasPty(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		return
+	}
 	if _, err := os.Stat("/dev/ptmx"); err != nil {
 		t.Skipf("pty not available: %v", err)
 	}
@@ -96,5 +101,64 @@ func TestResizeNoPanic(t *testing.T) {
 	}
 	if err := s.Resize(0, 0); err == nil {
 		t.Fatal("expected error for invalid size")
+	}
+}
+
+func TestCommandExecutesInProjectAndExits(t *testing.T) {
+	hasPty(t)
+	opts := testOpts(t)
+	opts.Cwd = filepath.Join(opts.Cwd, "a dir gün")
+	if err := os.MkdirAll(opts.Cwd, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if runtime.GOOS == "windows" {
+		opts.Shell = "cmd.exe"
+	}
+	s, err := New(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	exits := make(chan []Event, 1)
+	go func() {
+		var events []Event
+		for ev := range s.Data() {
+			if ev.Exit {
+				events = append(events, ev)
+			}
+		}
+		exits <- events
+	}()
+	// A file in the requested cwd proves command execution, unlike a marker
+	// in terminal output, which may only be the input echoed by the console.
+	if err := s.Input([]byte("echo executed>result.txt\rexit 7\r")); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case events := <-exits:
+		if len(events) != 1 || events[0].Code != 7 {
+			t.Fatalf("exit events = %#v, want one event with code 7", events)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("shell did not exit")
+	}
+	b, err := os.ReadFile(filepath.Join(opts.Cwd, "result.txt"))
+	if err != nil || strings.TrimSpace(string(b)) != "executed" {
+		t.Fatalf("command result = %q, %v", b, err)
+	}
+}
+
+func TestInvalidShellAndSize(t *testing.T) {
+	opts := testOpts(t)
+	opts.Shell = filepath.Join(t.TempDir(), "missing-shell")
+	if s, err := New(opts); err == nil {
+		_ = s.Close()
+		t.Fatal("missing shell accepted")
+	}
+	opts = testOpts(t)
+	opts.Rows = 32768
+	if s, err := New(opts); err == nil {
+		_ = s.Close()
+		t.Fatal("oversized terminal accepted")
 	}
 }

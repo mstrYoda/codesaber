@@ -41,14 +41,15 @@ func OpenWelcomeWindow() {
 	})
 }
 
-// CloseWelcomeWindow hides the welcome window if it exists.
+// CloseWelcomeWindow closes the welcome window after the workspace opens.
+// A hidden welcome window would keep the app alive when the workspace closes.
 func CloseWelcomeWindow() {
 	app := application.Get()
 	if app == nil {
 		return
 	}
 	if w, ok := app.Window.GetByName(WelcomeWindowName); ok {
-		w.Hide()
+		w.Close()
 	}
 }
 

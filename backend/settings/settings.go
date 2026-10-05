@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 )
 
@@ -17,7 +18,7 @@ import (
 type Model struct {
 	BracketColors      bool   `json:"bracketColors"`
 	Minimap            bool   `json:"minimap"`
-	TerminalShell      string `json:"terminalShell"` // "" = default ($SHELL or zsh)
+	TerminalShell      string `json:"terminalShell"`              // "" = platform default
 	EditorFontSizePx   int    `json:"editorFontSizePx,omitempty"` // 0 = 13
 	SearchIncludeGlobs string `json:"searchIncludeGlobs"`
 	AccentColor        string `json:"accentColor,omitempty"` // hex, "" default #4a5bfc
@@ -113,7 +114,7 @@ func Sanitize(m Model, warn func(string)) Model {
 		}
 	}
 	if m.TerminalShell != "" {
-		if _, err := os.Stat(m.TerminalShell); err != nil {
+		if _, err := exec.LookPath(m.TerminalShell); err != nil {
 			warn("terminal shell " + m.TerminalShell + " does not exist; keeping value")
 		}
 	}
